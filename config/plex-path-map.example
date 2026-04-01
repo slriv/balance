@@ -1,0 +1,16 @@
+# Plex path mapping template
+#
+# Format:
+#   <nas-path-prefix>=<plex-path-prefix>
+#
+# Rules:
+# - One mapping per line
+# - Blank lines and lines starting with # are ignored
+# - Use absolute path prefixes only
+# - Longest matching NAS prefix wins
+#
+# Examples:
+# /tv=/data/tv
+# /tv2=/data/tv-archive
+# /tv3=/mnt/usb-tv
+# /tvnas2=/mnt/remote-tv

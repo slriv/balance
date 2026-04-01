@@ -2,7 +2,10 @@
 use strict;
 use warnings;
 use Carp;
+use FindBin qw($Bin);
+use lib "$Bin/../lib";
 use Getopt::Long;
+use Balance::Manifest qw(append_manifest_record);
 $| = 1;  # unbuffered stdout
 STDERR->autoflush(1);
 
@@ -20,6 +23,7 @@ my $empty     = '';
 my $threshold = 20;   # %, max deviation from target before we stop
 my $max_size  = 0;    # GB, skip shows larger than this (0 = no limit)
 my $plan_file = '';
+my $manifest_file = '';
 my $apply     = 0;
 my $dry_run   = 0;
 my $log_file  = '';
@@ -48,6 +52,10 @@ Options:
 
   --plan-file=/path    Save generated rsync move commands to this file.
                        File is overwritten on each run.
+
+    --manifest-file=/path
+                                             Append JSONL records for successful APPLY moves.
+                                             Intended for downstream Sonarr/Plex reconciliation.
 
   --apply, --execute   Apply the generated move plan immediately using rsync.
                        Requires writable mounts in the container.
@@ -84,6 +92,7 @@ GetOptions(
     'threshold=f' => \$threshold,
     'max-size=i'  => \$max_size,
     'plan-file=s' => \$plan_file,
+    'manifest-file=s' => \$manifest_file,
     'apply|execute' => \$apply,
     'dry-run'     => \$dry_run,
     'log-file=s'  => \$log_file,
@@ -265,15 +274,21 @@ if ($plan_file) {
 
 if ($apply) {
     my $mode_label = $dry_run ? 'DRY-RUN' : 'APPLY';
+    my $run_id = join('-', 'balance', time(), $$);
     print "\n=== $mode_label MODE: ", scalar(@moves), " planned move(s) ===\n";
     print "    (no files will be moved)\n" if $dry_run;
 
     my $lf;
+    my $mf;
     if ($log_file) {
         open $lf, '>>', $log_file or die "Can't open log file $log_file: $!\n";
         $lf->autoflush(1);
         printf {$lf} "=== %s started %s: %d move(s) ===\n",
             $mode_label, log_ts(), scalar @moves;
+    }
+    if ($manifest_file && !$dry_run) {
+        open $mf, '>>', $manifest_file or die "Can't open manifest file $manifest_file: $!\n";
+        $mf->autoflush(1);
     }
     my $tee = sub { print $_[0]; print {$lf} $_[0] if $lf; };
 
@@ -281,8 +296,9 @@ if ($apply) {
     for my $m (@moves) {
         my $src_dir = "$m->{from}/$m->{show}/";
         my $dst_dir = "$m->{to}/$m->{show}";
+        my $started_at = log_ts();
         $tee->(sprintf "[%s] (%d/%d) %s -> %s\n",
-            log_ts(), $ok + $failed + 1, scalar @moves, $src_dir, $dst_dir);
+            $started_at, $ok + $failed + 1, scalar @moves, $src_dir, $dst_dir);
         my @rsync_args = $dry_run
             ? ('-avPn', $src_dir, $dst_dir)
             : ('-avP', '--remove-source-files', $src_dir, $dst_dir);
@@ -295,6 +311,18 @@ if ($apply) {
         my $rc = $?;
         if ($rc == 0) {
             $ok++;
+            append_manifest_record($mf, {
+                run_id        => $run_id,
+                timestamp     => $started_at,
+                mode          => lc $mode_label,
+                status        => 'applied',
+                show          => $m->{show},
+                from_mount    => $m->{from},
+                to_mount      => $m->{to},
+                from_path     => $src_dir,
+                to_path       => $dst_dir,
+                size_kb       => $m->{size},
+            }) if $mf;
         } else {
             $tee->(sprintf "FAILED (exit=%d)\n", $rc >> 8);
             $failed++;
@@ -306,6 +334,7 @@ if ($apply) {
         printf {$lf} "=== %s ended %s ===\n", $mode_label, log_ts();
         close $lf;
     }
+    close $mf if $mf;
     exit($failed ? 1 : 0);
 }
 

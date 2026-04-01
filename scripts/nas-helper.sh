@@ -29,6 +29,8 @@ Commands:
   apply-restart Restart apply service container
   dry-run     Run planner + rsync dry run (no files moved)
   tail-log    Tail the live apply log on NAS
+  sonarr-plan Build Sonarr reconcile plan from latest manifest
+  plex-plan   Build Plex reconcile plan from latest manifest
   all         sync + config + build + help-test + smoke
 
 Environment overrides:
@@ -57,11 +59,17 @@ remote() {
 
 sync_files() {
   echo "==> Syncing files to ${NAS_HOST}:${REMOTE_DIR}"
-  remote "mkdir -p '$REMOTE_DIR' '$REMOTE_DIR/plans' '$REMOTE_DIR/logs'"
+  remote "mkdir -p '$REMOTE_DIR' '$REMOTE_DIR/plans' '$REMOTE_DIR/logs' '$REMOTE_DIR/config' '$REMOTE_DIR/lib'"
   (
     cd "$ROOT_DIR"
     scp -O Dockerfile docker-compose.yml "$NAS_HOST:$REMOTE_DIR/"
     scp -O -r bin "$NAS_HOST:$REMOTE_DIR/"
+    if [[ -d lib ]]; then
+      scp -O -r lib "$NAS_HOST:$REMOTE_DIR/"
+    fi
+    if [[ -d config ]]; then
+      scp -O -r config "$NAS_HOST:$REMOTE_DIR/"
+    fi
   )
   echo "==> Sync complete"
 }
@@ -128,6 +136,16 @@ tail_log() {
   ssh "$NAS_HOST" "tail -f '${REMOTE_DIR}/logs/apply.log'"
 }
 
+sonarr_plan() {
+  echo "==> Building Sonarr reconcile plan from latest manifest"
+  remote "cd '$REMOTE_DIR' && perl -Ilib bin/sonarr_reconcile.pl"
+}
+
+plex_plan() {
+  echo "==> Building Plex reconcile plan from latest manifest"
+  remote "cd '$REMOTE_DIR' && perl -Ilib bin/plex_reconcile.pl"
+}
+
 main() {
   need_cmd ssh
   need_cmd scp
@@ -172,6 +190,12 @@ main() {
       ;;
     tail-log)
       tail_log
+      ;;
+    sonarr-plan)
+      sonarr_plan
+      ;;
+    plex-plan)
+      plex_plan
       ;;
     all)
       sync_files

@@ -19,7 +19,7 @@ services:
     image: balance-tv:local
     container_name: balance-tv-apply
     init: true
-    command: ["--threshold=20", "--plan-file=/plans/latest-plan.sh", "--log-file=/logs/apply.log", "--apply"]
+    command: ["--threshold=20", "--plan-file=/plans/latest-plan.sh", "--manifest-file=/logs/latest-manifest.jsonl", "--log-file=/logs/apply.log", "--apply"]
     restart: on-failure:3
     volumes:
       - /volume2/TV:/tv
