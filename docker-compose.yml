@@ -1,0 +1,30 @@
+services:
+  balance:
+    build:
+      context: .
+    image: balance-tv:local
+    container_name: balance-tv
+    init: true
+    command: ["--threshold=20", "--plan-file=/plans/latest-plan.sh"]
+    volumes:
+      - /volume2/TV:/tv:ro
+      - /volumeUSB1/usbshare:/tv2:ro
+      - /volumeUSB2/usbshare:/tv3:ro
+      - /volume1/tvnas2mount/tvnas2:/tvnas2:ro
+      - /volume1/docker/plans:/plans
+
+  balance_apply:
+    build:
+      context: .
+    image: balance-tv:local
+    container_name: balance-tv-apply
+    init: true
+    command: ["--threshold=20", "--plan-file=/plans/latest-plan.sh", "--log-file=/logs/apply.log", "--apply"]
+    restart: on-failure:3
+    volumes:
+      - /volume2/TV:/tv
+      - /volumeUSB1/usbshare:/tv2
+      - /volumeUSB2/usbshare:/tv3
+      - /volume1/tvnas2mount/tvnas2:/tvnas2
+      - /volume1/docker/plans:/plans
+      - /volume1/docker/logs:/logs
