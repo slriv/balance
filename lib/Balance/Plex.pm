@@ -2,14 +2,11 @@ package Balance::Plex;
 
 use strict;
 use warnings;
+use Balance::Config qw(service_defaults);
 use Balance::Reconcile ();
 
 sub defaults {
-    return {
-        manifest_file => $ENV{BALANCE_MANIFEST_FILE} || 'logs/latest-manifest.jsonl',
-        path_map_file => $ENV{PLEX_PATH_MAP_FILE} || 'config/plex-path-map.example',
-        report_file   => $ENV{PLEX_REPORT_FILE} || 'logs/plex-report.json',
-    };
+    return service_defaults('plex');
 }
 
 sub build_plan {

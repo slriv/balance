@@ -2,14 +2,11 @@ package Balance::Sonarr;
 
 use strict;
 use warnings;
+use Balance::Config qw(service_defaults);
 use Balance::Reconcile ();
 
 sub defaults {
-    return {
-        manifest_file => $ENV{BALANCE_MANIFEST_FILE} || 'logs/latest-manifest.jsonl',
-        path_map_file => $ENV{SONARR_PATH_MAP_FILE} || 'config/sonarr-path-map.example',
-        report_file   => $ENV{SONARR_REPORT_FILE} || 'logs/sonarr-report.json',
-    };
+    return service_defaults('sonarr');
 }
 
 sub build_plan {
