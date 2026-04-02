@@ -6,6 +6,7 @@ use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use Getopt::Long;
 use Balance::Manifest qw(append_manifest_record);
+use Balance::Core qw(log_ts dir_size_kb fmt pct_fmt print_state discover_default_mounts);
 $| = 1;  # unbuffered stdout
 STDERR->autoflush(1);
 
@@ -16,11 +17,12 @@ BEGIN {
 $SIG{__DIE__}  = sub { Carp::confess("FATAL: @_") };
 $SIG{__WARN__} = sub { warn "WARN: @_" };
 
-# -- Config: edit or override with --mount flags --
-my @MOUNTS = qw(/tv /tv2 /tv3 /tvnas2);
+# -- Config: auto-discover mounts or override with --mount flags --
+my @MOUNTS;
+my $mount_prefix = '/tv';
 
 my $empty     = '';
-my $threshold = 20;   # %, max deviation from target before we stop
+my $threshold = 20;   # %, minimum free space to keep on each target volume
 my $max_size  = 0;    # GB, skip shows larger than this (0 = no limit)
 my $plan_file = '';
 my $manifest_file = '';
@@ -44,18 +46,21 @@ Options:
   --empty=/path        Drain this mount by setting its target TV to 0.
                        Example: --empty=/tvnas2
 
-  --threshold=N        Stop balancing when every mount is within N% of target TV.
+    --threshold=N        Keep at least N% free space on each target volume.
+                                             Lower values allow fuller disks; higher values keep
+                                             more headroom and may require more moves.
                        Default: 20
 
   --max-size=N         Skip shows larger than N GB (0 = no size limit).
                        Default: 0
 
   --plan-file=/path    Save generated rsync move commands to this file.
-                       File is overwritten on each run.
+                       A YYYYmmdd-HHMMSS suffix is added on each run.
 
     --manifest-file=/path
                                              Append JSONL records for successful APPLY moves.
                                              Intended for downstream Sonarr/Plex reconciliation.
+                                             A YYYYmmdd-HHMMSS suffix is added on each run.
 
   --apply, --execute   Apply the generated move plan immediately using rsync.
                        Requires writable mounts in the container.
@@ -63,12 +68,16 @@ Options:
   --dry-run            Run rsync with -n (no files moved; shows what would happen).
                        Implies --apply.
 
-  --log-file=/path     Tee all rsync output to this file (appended each run).
-                       Use /logs/apply.log when running in container.
+    --log-file=/path     Write planner/apply output to this file (appended each run).
+                                             If omitted, defaults to balance-plan.log (or /artifacts/
+                                             balance-plan.log when /artifacts exists).
+                           A YYYYmmdd-HHMMSS suffix is added on each run.
 
   --mount=/path        Mount to include. Repeat to define custom mount list.
-                       If used, replaces defaults on first use.
-                       Default mounts: /tv, /tv2, /tv3, /tvnas2
+                       If used, replaces auto-discovered mounts on first use.
+
+  --mount-prefix=/tv   Auto-discover mounted paths with this prefix when
+                       --mount is not provided. Default: /tv
 
   --verbose            Print each selected move during planning.
 
@@ -76,9 +85,9 @@ Options:
 
 Examples:
   $0
-  $0 --threshold=3 --max-size=50
-  $0 --plan-file=/plans/latest-plan.sh
-  $0 --apply --log-file=/logs/apply.log
+    $0 --threshold=30 --max-size=50
+    $0 --plan-file=/artifacts/balance-plan.sh
+    $0 --apply --log-file=/artifacts/balance-apply.log
   $0 --dry-run
   $0 --empty=/tvnas2
   $0 --mount=/tv --mount=/tv2 --mount=/tv3 --verbose
@@ -97,6 +106,7 @@ GetOptions(
     'dry-run'     => \$dry_run,
     'log-file=s'  => \$log_file,
     'verbose'     => \$verbose,
+    'mount-prefix=s' => \$mount_prefix,
     'mount=s@'    => sub {
         @MOUNTS = () unless $mount_override++;
         push @MOUNTS, $_[1];
@@ -105,11 +115,41 @@ GetOptions(
 
 usage(0) if $help;
 usage(2, "--threshold must be >= 0") if $threshold < 0;
+usage(2, "--threshold must be <= 100") if $threshold > 100;
+usage(2, "--mount-prefix must be an absolute path") if $mount_prefix !~ m{^/};
 $apply = 1 if $dry_run;
+
+if (!$log_file) {
+    if ($plan_file && $plan_file =~ m{^(.*/)[^/]+$}) {
+        $log_file = $1 . 'balance-plan.log';
+    } elsif (-d '/artifacts') {
+        $log_file = '/artifacts/balance-plan.log';
+    } else {
+        $log_file = 'balance-plan.log';
+    }
+}
+
+my $output_stamp = output_timestamp();
+$plan_file = stamp_output_path($plan_file, $output_stamp) if $plan_file;
+$log_file = stamp_output_path($log_file, $output_stamp) if $log_file;
+$manifest_file = stamp_output_path($manifest_file, $output_stamp) if $manifest_file;
+
+my $planning_lf;
+if ($log_file) {
+    open $planning_lf, '>>', $log_file or die "Can't open log file $log_file: $!\n";
+    $planning_lf->autoflush(1);
+    printf {$planning_lf} "=== PLAN started %s ===\n", log_ts();
+}
+
+if (!@MOUNTS) {
+    @MOUNTS = discover_default_mounts($mount_prefix);
+    die "No mounts discovered for prefix '$mount_prefix'. Use --mount=/path to define mounts explicitly.\n"
+        unless @MOUNTS;
+}
 
 my $GB = 1024*1024;  # in KB units (du -sk)
 my $max_size_kb  = $max_size ? $max_size * $GB : 0;
-my $min_threshold_kb = $GB;  # 1GB floor so tiny targets don't over-trigger moves
+my $move_slack_kb = $GB;  # ignore sub-1GB deltas to avoid churn
 
 # -- Gather volume info --
 my %vol;
@@ -146,49 +186,90 @@ for my $mnt (@MOUNTS) {
 die "No usable mounts found. Check your volume mappings.\n" unless @MOUNTS;
 printf STDERR "Loaded %d volumes: %s\n", scalar @MOUNTS, join(', ', @MOUNTS);
 for my $m (@MOUNTS) {
-    printf STDERR "  %-12s total=%s shows=%d\n", $m, fmt($vol{$m}{total}), scalar keys %{$vol{$m}{shows}};
+    printf STDERR "  %-12s total=%s shows=%d\n", $m, fmt($vol{$m}{total}, $GB), scalar keys %{$vol{$m}{shows}};
 }
 
 # -- Determine active target volumes --
 my @targets = $empty ? (grep { $_ ne $empty } @MOUNTS) : @MOUNTS;
 die "--empty=$empty not in mount list\n" if $empty && !exists $vol{$empty};
+die "No target volumes available after --empty selection\n" unless @targets;
 
-# -- Compute target free per active volume --
-# effective_cap = total - other (max TV a volume could hold)
-# total_tv = sum of all TV across ALL volumes (including one being emptied)
-# total_effective = sum of effective_cap across targets only
-# target: distribute TV proportionally to effective_cap
+# -- Compute target TV per active volume from minimum free-space requirement --
+# effective_cap = total - other (absolute TV max if free-space requirement is 0)
+# tv_cap = effective_cap - (threshold% * total)
+# If total TV exceeds sum(tv_cap), requirement is impossible; we still rebalance
+# by first filling tv_cap, then spreading overflow proportionally by effective cap.
 my $total_tv = 0;
 $total_tv += $vol{$_}{tv} for @MOUNTS;
-my $total_eff = 0;
-$total_eff += ($vol{$_}{total} - $vol{$_}{other}) for @targets;
-
-# target_tv per volume = proportion of its effective_cap
-my %target_tv;
+my (%tv_cap, %eff_cap);
+my ($total_tv_cap, $total_eff_cap) = (0, 0);
 for my $m (@targets) {
     my $eff = $vol{$m}{total} - $vol{$m}{other};
-    $target_tv{$m} = $total_tv * ($eff / $total_eff);
+    $eff = 0 if $eff < 0;
+    my $min_free_kb = $vol{$m}{total} * ($threshold / 100.0);
+    my $cap = $eff - $min_free_kb;
+    $cap = 0 if $cap < 0;
+
+    $eff_cap{$m} = $eff;
+    $tv_cap{$m} = $cap;
+    $total_eff_cap += $eff;
+    $total_tv_cap += $cap;
+}
+
+# target_tv per volume
+my %target_tv;
+if ($total_tv_cap > 0 && $total_tv <= $total_tv_cap) {
+    for my $m (@targets) {
+        $target_tv{$m} = $total_tv * ($tv_cap{$m} / $total_tv_cap);
+    }
+} else {
+    my $overflow_kb = $total_tv > $total_tv_cap ? ($total_tv - $total_tv_cap) : 0;
+    my $spread_base = $total_eff_cap > 0 ? $total_eff_cap : scalar(@targets);
+    for my $m (@targets) {
+        my $weight = $total_eff_cap > 0 ? $eff_cap{$m} : 1;
+        $target_tv{$m} = $tv_cap{$m} + ($overflow_kb * ($weight / $spread_base));
+    }
 }
 $target_tv{$empty} = 0 if $empty;
 
-print_state("CURRENT STATE");
+if ($total_tv > $total_tv_cap) {
+    my $shortfall = $total_tv - $total_tv_cap;
+    my $msg = sprintf(
+        "WARN: Cannot guarantee %.1f%% free on all target volumes; shortfall=%s\n",
+        $threshold,
+        fmt($shortfall, $GB),
+    );
+    print $msg;
+    print {$planning_lf} $msg if $planning_lf;
+}
+
+print_state(
+    label => "CURRENT STATE",
+    mounts => \@MOUNTS,
+    vol => \%vol,
+    target_tv => \%target_tv,
+    gb_kb => $GB,
+);
+print_state(
+    label => "CURRENT STATE",
+    mounts => \@MOUNTS,
+    vol => \%vol,
+    target_tv => \%target_tv,
+    gb_kb => $GB,
+    fh => $planning_lf,
+) if $planning_lf;
 
 # -- Greedy move loop --
 my @moves;
 for (1..5000) {  # safety cap
     # delta = how much TV to shed (positive) or absorb (negative)
     my %delta;
-    my %limit;
     for my $m (@MOUNTS) {
         my $tgt = $target_tv{$m} // 0;
         $delta{$m} = $vol{$m}{tv} - $tgt;
-
-        my $base_kb = $tgt > 0 ? $tgt : $vol{$m}{tv};
-        my $pct_limit_kb = $base_kb * ($threshold / 100.0);
-        $limit{$m} = $pct_limit_kb > $min_threshold_kb ? $pct_limit_kb : $min_threshold_kb;
     }
-    my @over  = sort { $delta{$b} <=> $delta{$a} } grep { $delta{$_} > $limit{$_} } @MOUNTS;
-    my @under = sort { $delta{$a} <=> $delta{$b} } grep { $delta{$_} < -$limit{$_} } @targets;
+    my @over  = sort { $delta{$b} <=> $delta{$a} } grep { $delta{$_} > $move_slack_kb } @MOUNTS;
+    my @under = sort { $delta{$a} <=> $delta{$b} } grep { $delta{$_} < -$move_slack_kb } @targets;
     last unless @over && @under;
 
     my $src = $over[0];
@@ -205,7 +286,7 @@ for (1..5000) {  # safety cap
         next if $max_size_kb && $sz > $max_size_kb;
         next if $sz > $room;
         # don't move something so small it barely helps (< 1% of delta)
-        next if $sz < $delta{$src} * 0.01 && $delta{$src} > $limit{$src} * 2;
+        next if $sz < $delta{$src} * 0.01 && $delta{$src} > $move_slack_kb * 2;
         $picked = $show;
         last;
     }
@@ -229,38 +310,61 @@ for (1..5000) {  # safety cap
     $vol{$src}{tv} -= $sz;
     $vol{$dst}{shows}{$picked} = $sz;
     $vol{$dst}{tv} += $sz;
-    printf "  move: %-45s %s → %s  (%s)\n", qq{"$picked"}, $src, $dst, fmt($sz) if $verbose;
+    printf "  move: %-45s %s → %s  (%s)\n", qq{"$picked"}, $src, $dst, fmt($sz, $GB) if $verbose;
 }
 
 # -- Output --
-print_state("PROJECTED STATE");
+print_state(
+    label => "PROJECTED STATE",
+    mounts => \@MOUNTS,
+    vol => \%vol,
+    target_tv => \%target_tv,
+    gb_kb => $GB,
+);
+print_state(
+    label => "PROJECTED STATE",
+    mounts => \@MOUNTS,
+    vol => \%vol,
+    target_tv => \%target_tv,
+    gb_kb => $GB,
+    fh => $planning_lf,
+) if $planning_lf;
 printf "\n=== MOVE PLAN: %d moves ===\n", scalar @moves;
+printf {$planning_lf} "\n=== MOVE PLAN: %d moves ===\n", scalar @moves if $planning_lf;
 my $total_move_kb = 0;
 $total_move_kb += $_->{size} for @moves;
-printf "    Total data to move: %s\n", fmt($total_move_kb) if @moves;
+printf "    Total data to move: %s\n", fmt($total_move_kb, $GB) if @moves;
+printf {$planning_lf} "    Total data to move: %s\n", fmt($total_move_kb, $GB) if $planning_lf && @moves;
 
 my @plan_lines;
 if (!@moves) {
     if ($plan_file) {
         open my $pf, '>', $plan_file or die "Can't write plan file $plan_file: $!\n";
         print {$pf} "#!/usr/bin/env bash\n";
-        print {$pf} "# No moves required; already within ${threshold}% threshold.\n";
+        print {$pf} "# No moves required for minimum-free target (${threshold}%).\n";
         close $pf;
         chmod 0755, $plan_file;
         print "Saved plan file: $plan_file\n";
+        print {$planning_lf} "Saved plan file: $plan_file\n" if $planning_lf;
     }
-    print "Already balanced within ${threshold}% threshold.\n";
+    print "No moves required for minimum-free target (${threshold}%).\n";
+    print {$planning_lf} "No moves required for minimum-free target (${threshold}%).\n" if $planning_lf;
+    if ($planning_lf) {
+        printf {$planning_lf} "=== PLAN ended %s ===\n", log_ts();
+        close $planning_lf;
+    }
     exit 0;
 }
 for my $m (@moves) {
-    printf "# %s (%s)\n", $m->{show}, fmt($m->{size});
+    printf "# %s (%s)\n", $m->{show}, fmt($m->{size}, $GB);
     my $safe = $m->{show};
     $safe =~ s/'/'\\''/g;  # escape single quotes for shell
     my $cmd = sprintf "rsync -avP --remove-source-files '%s/%s/' '%s/%s'",
         $m->{from}, $safe, $m->{to}, $safe;
-    push @plan_lines, sprintf("# %s (%s)", $m->{show}, fmt($m->{size}));
+    push @plan_lines, sprintf("# %s (%s)", $m->{show}, fmt($m->{size}, $GB));
     push @plan_lines, $cmd;
     print "$cmd\n";
+    print {$planning_lf} "$cmd\n" if $planning_lf;
 }
 if ($plan_file) {
     open my $pf, '>', $plan_file or die "Can't write plan file $plan_file: $!\n";
@@ -270,6 +374,12 @@ if ($plan_file) {
     close $pf;
     chmod 0755, $plan_file;
     print "Saved plan file: $plan_file\n";
+    print {$planning_lf} "Saved plan file: $plan_file\n" if $planning_lf;
+}
+
+if ($planning_lf) {
+    printf {$planning_lf} "=== PLAN ended %s ===\n", log_ts();
+    close $planning_lf;
 }
 
 if ($apply) {
@@ -300,8 +410,10 @@ if ($apply) {
         $tee->(sprintf "[%s] (%d/%d) %s -> %s\n",
             $started_at, $ok + $failed + 1, scalar @moves, $src_dir, $dst_dir);
         my @rsync_args = $dry_run
-            ? ('-avPn', $src_dir, $dst_dir)
-            : ('-avP', '--remove-source-files', $src_dir, $dst_dir);
+            ? ($log_file ? ('-avn', '--partial', $src_dir, $dst_dir)
+                         : ('-avPn', $src_dir, $dst_dir))
+            : ($log_file ? ('-av', '--partial', '--remove-source-files', $src_dir, $dst_dir)
+                         : ('-avP', '--remove-source-files', $src_dir, $dst_dir));
         if (open my $pipe, '-|', 'rsync', @rsync_args) {
             while (my $line = <$pipe>) { $tee->($line) }
             close $pipe;
@@ -340,61 +452,21 @@ if ($apply) {
 
 print "\n** Review above, then pipe to sh or run commands manually **\n";
 
-# -- Helpers --
-sub log_ts {
+sub output_timestamp {
     my @t = localtime();
-    return sprintf "%04d-%02d-%02d %02d:%02d:%02d",
-        $t[5]+1900, $t[4]+1, $t[3], $t[2], $t[1], $t[0];
+    return sprintf "%04d%02d%02d-%02d%02d%02d",
+        $t[5] + 1900, $t[4] + 1, $t[3], $t[2], $t[1], $t[0];
 }
-sub dir_size_kb {
-    my $dir = shift;
-    my $total = 0;
-    my @stack = ($dir);
-    while (my $d = pop @stack) {
-        opendir my $dh, $d or next;
-        while (my $f = readdir $dh) {
-            next if $f eq '.' || $f eq '..';
-            my $path = "$d/$f";
-            if (-d $path && !-l $path) {
-                push @stack, $path;
-            } else {
-                $total += (-s $path || 0);
-            }
-        }
-        closedir $dh;
+
+sub stamp_output_path {
+    my ($path, $stamp) = @_;
+    return $path unless defined $path && length $path;
+    return $path if $path =~ /-\d{8}-\d{6}(?:\.[^\/]+)?$/;
+
+    if ($path =~ /(\.[^\/.]+)$/) {
+        my $ext = $1;
+        $path =~ s/\Q$ext\E$//;
+        return "$path-$stamp$ext";
     }
-    return int($total / 1024);
-}
-sub fmt {
-    my $kb = shift;
-    return sprintf("%.1fG", $kb / $GB) if $kb >= $GB;
-    return sprintf("%.0fM", $kb / 1024);
-}
-sub pct_fmt {
-    my ($num, $den) = @_;
-    return "0.0%" unless $den;
-    return sprintf("%.1f%%", (100 * $num) / $den);
-}
-sub print_state {
-    my $label = shift;
-    printf "\n=== %s ===\n", $label;
-    printf "%-12s %8s %8s %8s %8s %8s %8s %8s\n",
-        "MOUNT", "TOTAL", "OTHER", "TV_USED", "FREE", "TARGET_TV", "SHOW_%", "OTHER_%";
-    for my $m (@MOUNTS) {
-        my $v = $vol{$m};
-        my $free = $v->{total} - $v->{other} - $v->{tv};
-        my $tgt  = $target_tv{$m} // 0;
-        printf "%-12s %8s %8s %8s %8s %8s %8s %8s\n",
-            $m,
-            fmt($v->{total}),
-            fmt($v->{other}),
-            fmt($v->{tv}),
-            fmt($free),
-            fmt($tgt),
-            pct_fmt($v->{tv}, $v->{total}),
-            pct_fmt($v->{other}, $v->{total});
-    }
-    my $total_free = 0;
-    $total_free += ($vol{$_}{total} - $vol{$_}{other} - $vol{$_}{tv}) for @MOUNTS;
-    printf "%-12s %8s %8s %8s %8s %8s %8s %8s\n", "TOTAL", "", "", "", fmt($total_free), "", "", "";
+    return "$path-$stamp";
 }

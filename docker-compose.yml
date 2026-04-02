@@ -5,13 +5,13 @@ services:
     image: balance-tv:local
     container_name: balance-tv
     init: true
-    command: ["--threshold=20", "--plan-file=/plans/latest-plan.sh"]
+    command: ["--threshold=20", "--plan-file=/artifacts/balance-plan.sh", "--log-file=/artifacts/balance-plan.log"]
     volumes:
       - /volume2/TV:/tv:ro
       - /volumeUSB1/usbshare:/tv2:ro
       - /volumeUSB2/usbshare:/tv3:ro
       - /volume1/tvnas2mount/tvnas2:/tvnas2:ro
-      - /volume1/docker/plans:/plans
+      - ${ARTIFACTS_HOST_DIR:-/volume1/docker/balance/artifacts}:/artifacts
 
   balance_apply:
     build:
@@ -19,12 +19,11 @@ services:
     image: balance-tv:local
     container_name: balance-tv-apply
     init: true
-    command: ["--threshold=20", "--plan-file=/plans/latest-plan.sh", "--manifest-file=/logs/latest-manifest.jsonl", "--log-file=/logs/apply.log", "--apply"]
+    command: ["--threshold=20", "--plan-file=/artifacts/balance-plan.sh", "--manifest-file=/artifacts/balance-apply-manifest.jsonl", "--log-file=/artifacts/balance-apply.log", "--apply"]
     restart: on-failure:3
     volumes:
       - /volume2/TV:/tv
       - /volumeUSB1/usbshare:/tv2
       - /volumeUSB2/usbshare:/tv3
       - /volume1/tvnas2mount/tvnas2:/tvnas2
-      - /volume1/docker/plans:/plans
-      - /volume1/docker/logs:/logs
+      - ${ARTIFACTS_HOST_DIR:-/volume1/docker/balance/artifacts}:/artifacts

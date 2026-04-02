@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    refs/heads/main)
+      echo "ERROR: direct pushes to 'main' are blocked in this repo." >&2
+      echo "Create and push a topic branch instead, then merge to 'main' when ready." >&2
+      exit 1
+      ;;
+  esac
+done

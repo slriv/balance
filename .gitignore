@@ -1,5 +1,4 @@
 .env
 .DS_Store
 *.log
-plans/
-logs/
+artifacts/
