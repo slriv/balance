@@ -5,7 +5,6 @@ use Getopt::Long qw(GetOptions Configure);
 use LWP::UserAgent;
 use JSON;
 use Data::GUID;
-use IO::Socket::SSL;
 
 my $app_name      = 'balance';
 my $poll_interval = 2;
@@ -40,7 +39,6 @@ USAGE
 
 my $client_id = Data::GUID->new->as_string;
 my $ua = LWP::UserAgent->new;
-$ua->ssl_opts(verify_hostname => 0, SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE);
 
 # 1. Generate PIN
 my $pin_res = $ua->post('https://plex.tv/api/v2/pins',

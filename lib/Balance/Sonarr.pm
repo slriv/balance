@@ -2,7 +2,11 @@ package Balance::Sonarr;
 
 use strict;
 use warnings;
-use Balance::Config qw(service_defaults);
+use Exporter 'import';
+use HTTP::Tiny;
+use JSON::PP ();
+use Getopt::Long qw(GetOptionsFromArray Configure);
+use Balance::Config qw(service_defaults load_env_file);
 use Balance::Reconcile ();
 
 our @EXPORT_OK = qw(get_series rescan_series refresh_series update_series_path resolve_series_id apply_plan);
@@ -120,7 +124,10 @@ sub resolve_series_id {
         next unless length $sp;
         # Normalize: strip trailing slash for comparison
         (my $nsp = $sp) =~ s{/+$}{};
-        if (index($path, $nsp) == 0 && length($nsp) > $best_len) {
+        my $matches_prefix   = index($path, $nsp) == 0;
+        my $matches_boundary = length($path) == length($nsp)
+            || substr($path, length($nsp), 1) eq '/';
+        if ($matches_prefix && $matches_boundary && length($nsp) > $best_len) {
             $best_id  = $s->{id};
             $best_len = length $nsp;
         }

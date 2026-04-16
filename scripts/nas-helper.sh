@@ -141,6 +141,17 @@ apply_run() {
   remote "cd '$REMOTE_DIR' && $(remote_env_prefix ARTIFACTS_HOST_DIR)sudo -n '$DOCKER_BIN' compose run --rm balance_apply"
 }
 
+apply_test() {
+  local max_moves="${MAX_MOVES:-10}"
+  echo "==> Running test apply (at most ${max_moves} moves)"
+  remote "cd '$REMOTE_DIR' && $(remote_env_prefix ARTIFACTS_HOST_DIR)sudo -n '$DOCKER_BIN' compose run --rm balance_apply --max-moves='${max_moves}'"
+}
+
+apply_status() {
+  echo "==> Apply service status"
+  remote "cd '$REMOTE_DIR' && $(remote_env_prefix ARTIFACTS_HOST_DIR)sudo -n '$DOCKER_BIN' compose ps --all balance_apply"
+}
+
 apply_bg() {
   echo "==> Starting apply service in background"
   remote "cd '$REMOTE_DIR' && $(remote_env_prefix ARTIFACTS_HOST_DIR)sudo -n '$DOCKER_BIN' compose up -d balance_apply"
@@ -178,6 +189,18 @@ sonarr_plan() {
   remote "cd '$REMOTE_DIR' && $(remote_env_prefix BALANCE_MANIFEST_FILE SONARR_BASE_URL SONARR_API_KEY SONARR_PATH_MAP_FILE SONARR_REPORT_FILE SONARR_RETRY_QUEUE_FILE) perl -Ilib bin/sonarr_reconcile.pl"
 }
 
+sonarr_dry_run() {
+  echo "==> Previewing Sonarr reconcile (dry-run; no API writes)"
+  load_local_env
+  remote "cd '$REMOTE_DIR' && $(remote_env_prefix BALANCE_MANIFEST_FILE SONARR_BASE_URL SONARR_API_KEY SONARR_PATH_MAP_FILE SONARR_REPORT_FILE SONARR_RETRY_QUEUE_FILE) perl -Ilib lib/Balance/Sonarr.pm dry-run"
+}
+
+sonarr_apply() {
+  echo "==> Applying Sonarr reconcile plan (update paths + trigger rescans)"
+  load_local_env
+  remote "cd '$REMOTE_DIR' && $(remote_env_prefix BALANCE_MANIFEST_FILE SONARR_BASE_URL SONARR_API_KEY SONARR_PATH_MAP_FILE SONARR_REPORT_FILE SONARR_RETRY_QUEUE_FILE) perl -Ilib lib/Balance/Sonarr.pm apply"
+}
+
 sonarr_config() {
   echo "==> Showing Sonarr config (credentials redacted; no API calls)"
   load_local_env
@@ -188,6 +211,18 @@ plex_plan() {
   echo "==> Building Plex reconcile plan from latest manifest"
   load_local_env
   remote "cd '$REMOTE_DIR' && $(remote_env_prefix BALANCE_MANIFEST_FILE PLEX_BASE_URL PLEX_TOKEN PLEX_LIBRARY_IDS PLEX_PATH_MAP_FILE PLEX_REPORT_FILE PLEX_RETRY_QUEUE_FILE) perl -Ilib bin/plex_reconcile.pl"
+}
+
+plex_dry_run() {
+  echo "==> Previewing Plex reconcile (dry-run; no API writes)"
+  load_local_env
+  remote "cd '$REMOTE_DIR' && $(remote_env_prefix BALANCE_MANIFEST_FILE PLEX_BASE_URL PLEX_TOKEN PLEX_LIBRARY_IDS PLEX_PATH_MAP_FILE PLEX_REPORT_FILE PLEX_RETRY_QUEUE_FILE) perl -Ilib lib/Balance/Plex.pm dry-run"
+}
+
+plex_apply() {
+  echo "==> Applying Plex reconcile plan (scan paths + empty trash)"
+  load_local_env
+  remote "cd '$REMOTE_DIR' && $(remote_env_prefix BALANCE_MANIFEST_FILE PLEX_BASE_URL PLEX_TOKEN PLEX_LIBRARY_IDS PLEX_PATH_MAP_FILE PLEX_REPORT_FILE PLEX_RETRY_QUEUE_FILE) perl -Ilib lib/Balance/Plex.pm apply"
 }
 
 plex_config() {
@@ -255,6 +290,12 @@ main() {
       ;;
     sonarr-plan)
       sonarr_plan
+      ;;
+    sonarr-dry-run)
+      sonarr_dry_run
+      ;;
+    sonarr-apply)
+      sonarr_apply
       ;;
     plex-config)
       plex_config

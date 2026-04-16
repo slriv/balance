@@ -2,7 +2,11 @@ package Balance::Plex;
 
 use strict;
 use warnings;
-use Balance::Config qw(service_defaults);
+use Exporter 'import';
+use HTTP::Tiny;
+use JSON::PP ();
+use Getopt::Long qw(GetOptionsFromArray Configure);
+use Balance::Config qw(service_defaults load_env_file);
 use Balance::Reconcile ();
 
 our @EXPORT_OK = qw(list_libraries scan_library scan_path empty_trash resolve_library_id apply_plan);
@@ -108,7 +112,10 @@ sub resolve_library_id {
         for my $loc (@locs) {
             my $lp = $loc->{path} // '';
             next unless length $lp;
-            if (index($path, $lp) == 0 && length($lp) > $best_len) {
+            my $matches_prefix   = index($path, $lp) == 0;
+            my $matches_boundary = length($path) == length($lp)
+                || substr($path, length($lp), 1) eq '/';
+            if ($matches_prefix && $matches_boundary && length($lp) > $best_len) {
                 $best_id  = $s->{key};
                 $best_len = length $lp;
             }
