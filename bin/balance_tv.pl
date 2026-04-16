@@ -24,6 +24,7 @@ my $mount_prefix = '/tv';
 my $empty     = '';
 my $threshold = 20;   # %, minimum free space to keep on each target volume
 my $max_size  = 0;    # GB, skip shows larger than this (0 = no limit)
+my $max_moves = 0;    # limit total moves (0 = no limit); useful for test runs
 my $plan_file = '';
 my $manifest_file = '';
 my $apply     = 0;
@@ -52,6 +53,10 @@ Options:
                        Default: 20
 
   --max-size=N         Skip shows larger than N GB (0 = no size limit).
+                       Default: 0
+
+  --max-moves=N        Stop after planning N moves (0 = no limit).
+                       Useful for testing against a live system with minimal impact.
                        Default: 0
 
   --plan-file=/path    Save generated rsync move commands to this file.
@@ -100,6 +105,7 @@ GetOptions(
     'empty=s'     => \$empty,
     'threshold=f' => \$threshold,
     'max-size=i'  => \$max_size,
+    'max-moves=i' => \$max_moves,
     'plan-file=s' => \$plan_file,
     'manifest-file=s' => \$manifest_file,
     'apply|execute' => \$apply,
@@ -302,6 +308,7 @@ for (1..5000) {  # safety cap
         }
     }
     last unless $picked;
+    last if $max_moves && scalar @moves >= $max_moves;
 
     # "move" it in our data model
     my $sz = $vol{$src}{shows}{$picked};
