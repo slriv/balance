@@ -18,22 +18,29 @@ Usage: $(basename "$0") <command>
 Commands:
   sync        Copy project files to NAS (${NAS_HOST}:${REMOTE_DIR})
   build       Build the container image on NAS
+  rebuild     Build the container image on NAS (--no-cache)
   config      Validate docker compose config on NAS
   help-test   Run container with --help and show first lines
   smoke       Run container and show first 40 lines of output
   run         Run full container output (generates /artifacts/balance-plan.sh)
-  apply       Run planner + apply moves in foreground (long-running)
-  apply-bg    Start apply service detached
-  apply-logs  Follow apply service logs
-  apply-stop  Stop apply service
+  apply         Run planner + apply moves in foreground (long-running)
+  apply-bg      Start apply service detached
+  apply-logs    Follow apply service logs
+  apply-status  Show apply service container state and exit code
+  apply-stop    Stop apply service
   apply-restart Restart apply service container
-  dry-run     Run planner + rsync dry run (no files moved)
-  tail-log    Tail the live apply log on NAS
+  dry-run       Run planner + rsync dry run (no files moved)
+  test-apply    Apply at most MAX_MOVES moves (default 10; override with MAX_MOVES=N)
+  tail-log      Tail the live apply log on NAS
   sonarr-config Show resolved Sonarr config (redacted; no API calls)
-  sonarr-plan Build Sonarr reconcile plan from latest manifest
-  plex-config  Show resolved Plex config (redacted; no API calls)
-  plex-plan   Build Plex reconcile plan from latest manifest
-  all         sync + config + build + help-test + smoke
+  sonarr-plan   Build Sonarr reconcile plan from latest manifest
+  sonarr-dry-run Preview Sonarr reconcile operations without making API calls
+  sonarr-apply  Apply Sonarr reconcile plan (update paths + trigger rescans)
+  plex-config   Show resolved Plex config (redacted; no API calls)
+  plex-plan     Build Plex reconcile plan from latest manifest
+  plex-dry-run  Preview Plex reconcile operations without making API calls
+  plex-apply    Apply Plex reconcile plan (scan paths + empty trash)
+  all           sync + config + build + help-test + smoke
 
 Environment overrides:
   NAS_HOST    Default: ${NAS_HOST}
@@ -106,6 +113,11 @@ compose_config() {
 compose_build() {
   echo "==> Building image on NAS"
   remote "cd '$REMOTE_DIR' && $(remote_env_prefix ARTIFACTS_HOST_DIR)sudo -n '$DOCKER_BIN' compose build '$SERVICE'"
+}
+
+compose_rebuild() {
+  echo "==> Rebuilding image on NAS (--no-cache)"
+  remote "cd '$REMOTE_DIR' && $(remote_env_prefix ARTIFACTS_HOST_DIR)sudo -n '$DOCKER_BIN' compose build --no-cache '$SERVICE'"
 }
 
 help_test() {
@@ -196,6 +208,9 @@ main() {
     build)
       compose_build
       ;;
+    rebuild)
+      compose_rebuild
+      ;;
     config)
       compose_config
       ;;
@@ -211,11 +226,17 @@ main() {
     apply)
       apply_run
       ;;
+    test-apply)
+      apply_test
+      ;;
     apply-bg)
       apply_bg
       ;;
     apply-logs)
       apply_logs
+      ;;
+    apply-status)
+      apply_status
       ;;
     apply-stop)
       apply_stop
@@ -240,6 +261,12 @@ main() {
       ;;
     plex-plan)
       plex_plan
+      ;;
+    plex-dry-run)
+      plex_dry_run
+      ;;
+    plex-apply)
+      plex_apply
       ;;
     all)
       sync_files
