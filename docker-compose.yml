@@ -27,3 +27,5 @@ services:
       - /volumeUSB2/usbshare:/tv3
       - /volume1/tvnas2mount/tvnas2:/tvnas2
       - ${ARTIFACTS_HOST_DIR:-/volume1/docker/balance/artifacts}:/artifacts
+
+

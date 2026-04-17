@@ -1,13 +1,14 @@
 package Balance::PathMap;
 
-use strict;
-use warnings;
+use v5.38;
+use feature qw(signatures try);
+no warnings qw(experimental::try);  ## no critic (TestingAndDebugging::ProhibitNoWarnings)
+use utf8;
 use Exporter 'import';
 
 our @EXPORT_OK = qw(load_path_map translate_path);
 
-sub load_path_map {
-    my ($path) = @_;
+sub load_path_map($path) {
     open my $fh, '<', $path or die "Can't read path map file $path: $!\n";
     my @maps;
     while (my $line = <$fh>) {
@@ -15,6 +16,7 @@ sub load_path_map {
         $line =~ s/\s+#.*$//;
         $line =~ s/^\s+|\s+$//g;
         next unless length $line;
+        next if $line =~ /^#/;
         my ($from, $to) = split /\s*=\s*/, $line, 2;
         die "Invalid path map entry in $path: $line\n" unless defined $from && defined $to;
         for ($from, $to) {
@@ -29,9 +31,8 @@ sub load_path_map {
     return \@maps;
 }
 
-sub translate_path {
-    my ($maps, $path) = @_;
-    return undef unless defined $path;
+sub translate_path($maps, $path) {
+    return unless defined $path;
     for my $map (@{ $maps || [] }) {
         my $from = $map->{from};
         next unless index($path, $from) == 0;
@@ -39,7 +40,7 @@ sub translate_path {
         next if length($path) > length($from) && $next ne '/';
         return $map->{to} . substr($path, length($from));
     }
-    return undef;
+    return;
 }
 
 1;

@@ -1,13 +1,14 @@
 package Balance::Config;
 
-use strict;
-use warnings;
+use v5.38;
+use feature qw(signatures try);
+no warnings qw(experimental::try);  ## no critic (TestingAndDebugging::ProhibitNoWarnings)
+use utf8;
 use Exporter 'import';
 
 our @EXPORT_OK = qw(load_env_file service_defaults redact_value);
 
-sub load_env_file {
-    my ($path) = @_;
+sub load_env_file($path) {
     return 0 unless defined $path && -f $path;
 
     open my $fh, '<', $path or die "Can't read env file $path: $!\n";
@@ -26,12 +27,11 @@ sub load_env_file {
     return 1;
 }
 
-sub service_defaults {
-    my ($service) = @_;
+sub service_defaults($service) {
     die "service is required\n" unless defined $service && length $service;
 
     my %common = (
-        manifest_file => $ENV{BALANCE_MANIFEST_FILE} || 'artifacts/balance-apply-manifest.jsonl',
+        manifest_file => $ENV{BALANCE_MANIFEST_FILE} || '/artifacts/balance-apply-manifest.jsonl',
     );
 
     return {
@@ -39,9 +39,9 @@ sub service_defaults {
         base_url         => $ENV{SONARR_BASE_URL} || '',
         credential_name  => 'SONARR_API_KEY',
         credential_value => $ENV{SONARR_API_KEY} || '',
-        path_map_file    => $ENV{SONARR_PATH_MAP_FILE} || 'config/sonarr-path-map.example',
-        report_file      => $ENV{SONARR_REPORT_FILE} || 'artifacts/sonarr-reconcile-plan.json',
-        retry_queue_file => $ENV{SONARR_RETRY_QUEUE_FILE} || 'artifacts/sonarr-retry-queue.jsonl',
+        path_map_file    => $ENV{SONARR_PATH_MAP_FILE} || '/config/sonarr-path-map.example',
+        report_file      => $ENV{SONARR_REPORT_FILE} || '/artifacts/sonarr-reconcile-plan.json',
+        retry_queue_file => $ENV{SONARR_RETRY_QUEUE_FILE} || '/artifacts/sonarr-retry-queue.jsonl',
     } if $service eq 'sonarr';
 
     return {
@@ -49,17 +49,16 @@ sub service_defaults {
         base_url         => $ENV{PLEX_BASE_URL} || '',
         credential_name  => 'PLEX_TOKEN',
         credential_value => $ENV{PLEX_TOKEN} || '',
-        path_map_file    => $ENV{PLEX_PATH_MAP_FILE} || 'config/plex-path-map.example',
-        report_file      => $ENV{PLEX_REPORT_FILE} || 'artifacts/plex-reconcile-plan.json',
-        retry_queue_file => $ENV{PLEX_RETRY_QUEUE_FILE} || 'artifacts/plex-retry-queue.jsonl',
+        path_map_file    => $ENV{PLEX_PATH_MAP_FILE} || '/config/plex-path-map.example',
+        report_file      => $ENV{PLEX_REPORT_FILE} || '/artifacts/plex-reconcile-plan.json',
+        retry_queue_file => $ENV{PLEX_RETRY_QUEUE_FILE} || '/artifacts/plex-retry-queue.jsonl',
         library_ids      => $ENV{PLEX_LIBRARY_IDS} || '',
     } if $service eq 'plex';
 
     die "Unknown service: $service\n";
 }
 
-sub redact_value {
-    my ($value) = @_;
+sub redact_value($value) {
     return '(unset)' unless defined $value && length $value;
     return '****' if length($value) <= 4;
     return substr($value, 0, 2) . ('*' x (length($value) - 4)) . substr($value, -2);

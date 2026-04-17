@@ -1,7 +1,9 @@
 package Balance::Reconcile;
 
-use strict;
-use warnings;
+use v5.38;
+use feature qw(signatures try);
+no warnings qw(experimental::try);  ## no critic (TestingAndDebugging::ProhibitNoWarnings)
+use utf8;
 use Exporter 'import';
 use JSON::PP ();
 use POSIX qw(strftime);
@@ -9,8 +11,7 @@ use Balance::PathMap qw(translate_path);
 
 our @EXPORT_OK = qw(build_plan write_report);
 
-sub build_plan {
-    my (%args) = @_;
+sub build_plan(%args) {
     my $service  = $args{service}  or die "service is required\n";
     my $records  = $args{records}  || [];
     my $path_map = $args{path_map} || [];
@@ -32,8 +33,7 @@ sub build_plan {
     return \@items;
 }
 
-sub write_report {
-    my ($path, %args) = @_;
+sub write_report($path, %args) {
     my $service = $args{service} || 'unknown';
     my $items    = $args{items} || [];
     my %counts;
@@ -49,6 +49,7 @@ sub write_report {
     open my $fh, '>', $path or die "Can't write report file $path: $!\n";
     print {$fh} JSON::PP->new->canonical->pretty->encode($payload);
     close $fh;
+    return;
 }
 
 1;

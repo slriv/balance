@@ -1,0 +1,9 @@
+# Perl::Critic configuration for balance
+severity = 4
+
+# $SIG, $|, $ENV assigned globally is intentional in scripts and module CLIs
+[-Variables::RequireLocalizedPunctuationVars]
+
+# We use open/while/close blocks which are brief; the policy fires on any
+# multi-line scope which is too strict for our idiom
+[-InputOutput::RequireBriefOpen]

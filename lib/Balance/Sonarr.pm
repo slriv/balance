@@ -1,7 +1,9 @@
 package Balance::Sonarr;
 
-use strict;
-use warnings;
+use v5.38;
+use feature qw(signatures try);
+no warnings qw(experimental::try);  ## no critic (TestingAndDebugging::ProhibitNoWarnings)
+use utf8;
 use Exporter 'import';
 use HTTP::Tiny;
 use JSON::PP ();
@@ -9,34 +11,31 @@ use Getopt::Long qw(GetOptionsFromArray Configure);
 use Balance::Config qw(service_defaults load_env_file);
 use Balance::Reconcile ();
 
-our @EXPORT_OK = qw(get_series rescan_series refresh_series update_series_path resolve_series_id apply_plan);
+our @EXPORT_OK = qw(get_series rescan_series refresh_series update_series_path resolve_series_id apply_plan cli_main);
 
 sub defaults {
     return service_defaults('sonarr');
 }
 
-sub build_plan {
-    my ($class, %args) = @_;
+sub build_plan($class, %args) {
     return Balance::Reconcile::build_plan(service => 'sonarr', %args);
 }
 
-sub write_report {
-    my ($class, $path, $items) = @_;
+sub write_report($class, $path, $items) {
     Balance::Reconcile::write_report($path, service => 'sonarr', items => $items);
+    return;
 }
 
 # --- Sonarr HTTP API ---
 
-sub _api_get {
-    my ($base_url, $api_key, $path) = @_;
+sub _api_get($base_url, $api_key, $path) {
     my $resp = HTTP::Tiny->new(timeout => 15)->get("$base_url$path", {
         headers => { 'X-Api-Key' => $api_key, 'Accept' => 'application/json' },
     });
     return $resp;
 }
 
-sub _api_post {
-    my ($base_url, $api_key, $path, $body) = @_;
+sub _api_post($base_url, $api_key, $path, $body) {
     my $json = JSON::PP::encode_json($body);
     my $resp = HTTP::Tiny->new(timeout => 15)->post("$base_url$path", {
         headers => {
@@ -49,8 +48,7 @@ sub _api_post {
     return $resp;
 }
 
-sub _api_put {
-    my ($base_url, $api_key, $path, $body) = @_;
+sub _api_put($base_url, $api_key, $path, $body) {
     my $json = JSON::PP::encode_json($body);
     my $resp = HTTP::Tiny->new(timeout => 30)->put("$base_url$path", {
         headers => {
@@ -63,8 +61,7 @@ sub _api_put {
     return $resp;
 }
 
-sub get_series {
-    my (%args) = @_;
+sub get_series(%args) {
     my $base_url = $args{base_url} or die "base_url is required\n";
     my $api_key  = $args{api_key}  or die "api_key is required\n";
     my $resp = _api_get($base_url, $api_key, '/api/v3/series');
@@ -72,8 +69,7 @@ sub get_series {
     return JSON::PP::decode_json($resp->{content});
 }
 
-sub rescan_series {
-    my (%args) = @_;
+sub rescan_series(%args) {
     my $base_url = $args{base_url} or die "base_url is required\n";
     my $api_key  = $args{api_key}  or die "api_key is required\n";
     my $series_id = $args{series_id} // die "series_id is required\n";
@@ -83,8 +79,7 @@ sub rescan_series {
     return JSON::PP::decode_json($resp->{content});
 }
 
-sub refresh_series {
-    my (%args) = @_;
+sub refresh_series(%args) {
     my $base_url = $args{base_url} or die "base_url is required\n";
     my $api_key  = $args{api_key}  or die "api_key is required\n";
     my $series_id = $args{series_id} // die "series_id is required\n";
@@ -95,8 +90,7 @@ sub refresh_series {
 }
 
 # GET series/{id}, update path, PUT back. Returns updated series object.
-sub update_series_path {
-    my (%args) = @_;
+sub update_series_path(%args) {
     my $base_url  = $args{base_url}  or die "base_url is required\n";
     my $api_key   = $args{api_key}   or die "api_key is required\n";
     my $series_id = $args{series_id} // die "series_id is required\n";
@@ -114,8 +108,7 @@ sub update_series_path {
 # Given a NAS/remote path and the already-fetched get_series() array ref, return
 # the series ID whose path is the longest prefix match of the given path.
 # Exact match on series root directory is the expected common case.
-sub resolve_series_id {
-    my (%args) = @_;
+sub resolve_series_id(%args) {
     my $path   = $args{path}   // '';
     my $series = $args{series} or die "series is required\n";
     my ($best_id, $best_len) = (undef, -1);
@@ -124,9 +117,10 @@ sub resolve_series_id {
         next unless length $sp;
         # Normalize: strip trailing slash for comparison
         (my $nsp = $sp) =~ s{/+$}{};
+        next unless length $nsp;  # skip bare-root "/" entries
         my $matches_prefix   = index($path, $nsp) == 0;
         my $matches_boundary = length($path) == length($nsp)
-            || substr($path, length($nsp), 1) eq '/';
+            || (length($path) > length($nsp) && substr($path, length($nsp), 1) eq '/');
         if ($matches_prefix && $matches_boundary && length($nsp) > $best_len) {
             $best_id  = $s->{id};
             $best_len = length $nsp;
@@ -137,8 +131,7 @@ sub resolve_series_id {
 
 # Read a sonarr reconcile plan JSON, update series paths and rescan for each
 # planned item. Pass dry_run=>1 to preview only.
-sub apply_plan {
-    my (%args) = @_;
+sub apply_plan(%args) {
     my $base_url    = $args{base_url}    or die "base_url is required\n";
     my $api_key     = $args{api_key}     or die "api_key is required\n";
     my $report_file = $args{report_file} or die "report_file is required\n";
@@ -187,11 +180,10 @@ sub apply_plan {
 
 unless (caller) {
     $SIG{PIPE} = sub { exit 0 };
-    exit _cli_main(@ARGV);
+    exit cli_main(@ARGV);
 }
 
-sub _cli_main {
-    my @argv = @_;
+sub cli_main(@argv) {
 
     my $env_file    = '.env';
     my $base_url    = '';
@@ -231,7 +223,7 @@ sub _cli_main {
     die "SONARR_API_KEY is not set. Use --api-key or set it in $env_file\n"   unless $api_key;
 
     if ($command eq 'series') {
-        binmode(STDOUT, ':utf8');
+        binmode(STDOUT, ':encoding(UTF-8)');
         my $list = get_series(base_url => $base_url, api_key => $api_key);
         printf "%-6s  %-50s  %s\n", 'ID', 'Title', 'Path';
         print  '-' x 100, "\n";
@@ -273,8 +265,7 @@ sub _cli_main {
     }
 }
 
-sub _cli_usage {
-    my ($exit_code, $error) = @_;
+sub _cli_usage($exit_code, $error = undef) {
     print STDERR "$error\n\n" if defined $error && length $error;
     print STDERR <<'USAGE';
 Usage: perl -Ilib lib/Balance/Sonarr.pm <command> [options]

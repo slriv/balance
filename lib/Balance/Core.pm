@@ -1,19 +1,20 @@
 package Balance::Core;
 
-use strict;
-use warnings;
+use v5.38;
+use feature qw(signatures try);
+no warnings qw(experimental::try);  ## no critic (TestingAndDebugging::ProhibitNoWarnings)
+use utf8;
 use Exporter 'import';
 
 our @EXPORT_OK = qw(log_ts dir_size_kb fmt pct_fmt print_state discover_default_mounts);
 
-sub log_ts {
+sub log_ts() {
     my @t = localtime();
     return sprintf "%04d-%02d-%02d %02d:%02d:%02d",
         $t[5]+1900, $t[4]+1, $t[3], $t[2], $t[1], $t[0];
 }
 
-sub dir_size_kb {
-    my ($dir) = @_;
+sub dir_size_kb($dir) {
     my $total = 0;
     my @stack = ($dir);
     while (my $d = pop @stack) {
@@ -32,20 +33,17 @@ sub dir_size_kb {
     return int($total / 1024);
 }
 
-sub fmt {
-    my ($kb, $gb_kb) = @_;
+sub fmt($kb, $gb_kb) {
     return sprintf("%.1fG", $kb / $gb_kb) if $kb >= $gb_kb;
     return sprintf("%.0fM", $kb / 1024);
 }
 
-sub pct_fmt {
-    my ($num, $den) = @_;
+sub pct_fmt($num, $den) {
     return "0.0%" unless $den;
     return sprintf("%.1f%%", (100 * $num) / $den);
 }
 
-sub print_state {
-    my (%args) = @_;
+sub print_state(%args) {
     my $label     = $args{label};
     my $mounts    = $args{mounts} || [];
     my $vol       = $args{vol} || {};
@@ -73,10 +71,10 @@ sub print_state {
     my $total_free = 0;
     $total_free += ($vol->{$_}{total} - $vol->{$_}{other} - $vol->{$_}{tv}) for @{$mounts};
     printf {$fh} "%-12s %8s %8s %8s %8s %8s %8s %8s\n", "TOTAL", "", "", "", fmt($total_free, $gb_kb), "", "", "";
+    return;
 }
 
-sub discover_default_mounts {
-    my ($prefix) = @_;
+sub discover_default_mounts($prefix = undef) {
     $prefix = '/' unless defined $prefix && length $prefix;
     $prefix =~ s{/$}{} unless $prefix eq '/';
 
@@ -95,6 +93,7 @@ sub discover_default_mounts {
         }
         close $mi;
     }
+
 
     my %found;
     if (%mounted) {

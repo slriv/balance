@@ -1,20 +1,21 @@
 package Balance::Manifest;
 
-use strict;
-use warnings;
+use v5.38;
+use feature qw(signatures try);
+no warnings qw(experimental::try);  ## no critic (TestingAndDebugging::ProhibitNoWarnings)
+use utf8;
 use Exporter 'import';
 use JSON::PP ();
 
 our @EXPORT_OK = qw(append_manifest_record read_manifest successful_apply_records);
 
-sub append_manifest_record {
-    my ($fh, $record) = @_;
+sub append_manifest_record($fh, $record) {
     return unless $fh;
     print {$fh} JSON::PP->new->canonical->encode($record), "\n";
+    return;
 }
 
-sub read_manifest {
-    my ($path) = @_;
+sub read_manifest($path) {
     open my $fh, '<', $path or die "Can't read manifest file $path: $!\n";
     my @records;
     while (my $line = <$fh>) {
@@ -25,8 +26,7 @@ sub read_manifest {
     return \@records;
 }
 
-sub successful_apply_records {
-    my ($records) = @_;
+sub successful_apply_records($records) {
     return [ grep { ($_->{mode} // '') eq 'apply' && ($_->{status} // '') eq 'applied' } @{ $records || [] } ];
 }
 
