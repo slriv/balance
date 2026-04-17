@@ -32,14 +32,6 @@ Commands:
   dry-run       Run planner + rsync dry run (no files moved)
   test-apply    Apply at most MAX_MOVES moves (default 10; override with MAX_MOVES=N)
   tail-log      Tail the live apply log on NAS
-  sonarr-config Show resolved Sonarr config (redacted; no API calls)
-  sonarr-plan   Build Sonarr reconcile plan from latest manifest
-  sonarr-dry-run Preview Sonarr reconcile operations without making API calls
-  sonarr-apply  Apply Sonarr reconcile plan (update paths + trigger rescans)
-  plex-config   Show resolved Plex config (redacted; no API calls)
-  plex-plan     Build Plex reconcile plan from latest manifest
-  plex-dry-run  Preview Plex reconcile operations without making API calls
-  plex-apply    Apply Plex reconcile plan (scan paths + empty trash)
   all           sync + config + build + help-test + smoke
 
 Environment overrides:
@@ -77,15 +69,6 @@ remote_env_prefix() {
     result+=("$(printf '%s=%q' "$name" "$value")")
   done
   printf '%s ' "${result[@]}"
-}
-
-load_local_env() {
-  if [[ -f "$ROOT_DIR/.env" ]]; then
-    set -a
-    # shellcheck disable=SC1091
-    source "$ROOT_DIR/.env"
-    set +a
-  fi
 }
 
 sync_files() {
@@ -183,54 +166,6 @@ tail_log() {
   ssh "$NAS_HOST" "tail -f '${ARTIFACTS_HOST_DIR}/balance-apply.log'"
 }
 
-sonarr_plan() {
-  echo "==> Building Sonarr reconcile plan from latest manifest"
-  load_local_env
-  remote "cd '$REMOTE_DIR' && $(remote_env_prefix BALANCE_MANIFEST_FILE SONARR_BASE_URL SONARR_API_KEY SONARR_PATH_MAP_FILE SONARR_REPORT_FILE SONARR_RETRY_QUEUE_FILE) perl -Ilib bin/sonarr_reconcile.pl"
-}
-
-sonarr_dry_run() {
-  echo "==> Previewing Sonarr reconcile (dry-run; no API writes)"
-  load_local_env
-  remote "cd '$REMOTE_DIR' && $(remote_env_prefix BALANCE_MANIFEST_FILE SONARR_BASE_URL SONARR_API_KEY SONARR_PATH_MAP_FILE SONARR_REPORT_FILE SONARR_RETRY_QUEUE_FILE) perl -Ilib lib/Balance/Sonarr.pm dry-run"
-}
-
-sonarr_apply() {
-  echo "==> Applying Sonarr reconcile plan (update paths + trigger rescans)"
-  load_local_env
-  remote "cd '$REMOTE_DIR' && $(remote_env_prefix BALANCE_MANIFEST_FILE SONARR_BASE_URL SONARR_API_KEY SONARR_PATH_MAP_FILE SONARR_REPORT_FILE SONARR_RETRY_QUEUE_FILE) perl -Ilib lib/Balance/Sonarr.pm apply"
-}
-
-sonarr_config() {
-  echo "==> Showing Sonarr config (credentials redacted; no API calls)"
-  load_local_env
-  remote "cd '$REMOTE_DIR' && $(remote_env_prefix BALANCE_MANIFEST_FILE SONARR_BASE_URL SONARR_API_KEY SONARR_PATH_MAP_FILE SONARR_REPORT_FILE SONARR_RETRY_QUEUE_FILE) perl -Ilib bin/sonarr_reconcile.pl --show-config"
-}
-
-plex_plan() {
-  echo "==> Building Plex reconcile plan from latest manifest"
-  load_local_env
-  remote "cd '$REMOTE_DIR' && $(remote_env_prefix BALANCE_MANIFEST_FILE PLEX_BASE_URL PLEX_TOKEN PLEX_LIBRARY_IDS PLEX_PATH_MAP_FILE PLEX_REPORT_FILE PLEX_RETRY_QUEUE_FILE) perl -Ilib bin/plex_reconcile.pl"
-}
-
-plex_dry_run() {
-  echo "==> Previewing Plex reconcile (dry-run; no API writes)"
-  load_local_env
-  remote "cd '$REMOTE_DIR' && $(remote_env_prefix BALANCE_MANIFEST_FILE PLEX_BASE_URL PLEX_TOKEN PLEX_LIBRARY_IDS PLEX_PATH_MAP_FILE PLEX_REPORT_FILE PLEX_RETRY_QUEUE_FILE) perl -Ilib lib/Balance/Plex.pm dry-run"
-}
-
-plex_apply() {
-  echo "==> Applying Plex reconcile plan (scan paths + empty trash)"
-  load_local_env
-  remote "cd '$REMOTE_DIR' && $(remote_env_prefix BALANCE_MANIFEST_FILE PLEX_BASE_URL PLEX_TOKEN PLEX_LIBRARY_IDS PLEX_PATH_MAP_FILE PLEX_REPORT_FILE PLEX_RETRY_QUEUE_FILE) perl -Ilib lib/Balance/Plex.pm apply"
-}
-
-plex_config() {
-  echo "==> Showing Plex config (credentials redacted; no API calls)"
-  load_local_env
-  remote "cd '$REMOTE_DIR' && $(remote_env_prefix BALANCE_MANIFEST_FILE PLEX_BASE_URL PLEX_TOKEN PLEX_LIBRARY_IDS PLEX_PATH_MAP_FILE PLEX_REPORT_FILE PLEX_RETRY_QUEUE_FILE) perl -Ilib bin/plex_reconcile.pl --show-config"
-}
-
 main() {
   need_cmd ssh
   need_cmd scp
@@ -284,30 +219,6 @@ main() {
       ;;
     tail-log)
       tail_log
-      ;;
-    sonarr-config)
-      sonarr_config
-      ;;
-    sonarr-plan)
-      sonarr_plan
-      ;;
-    sonarr-dry-run)
-      sonarr_dry_run
-      ;;
-    sonarr-apply)
-      sonarr_apply
-      ;;
-    plex-config)
-      plex_config
-      ;;
-    plex-plan)
-      plex_plan
-      ;;
-    plex-dry-run)
-      plex_dry_run
-      ;;
-    plex-apply)
-      plex_apply
       ;;
     all)
       sync_files

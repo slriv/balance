@@ -1,7 +1,9 @@
 package Balance::Plex;
 
-use strict;
-use warnings;
+use v5.38;
+use feature qw(signatures try);
+no warnings qw(experimental::try);  ## no critic (TestingAndDebugging::ProhibitNoWarnings)
+use utf8;
 use Exporter 'import';
 use HTTP::Tiny;
 use JSON::PP ();
@@ -9,32 +11,29 @@ use Getopt::Long qw(GetOptionsFromArray Configure);
 use Balance::Config qw(service_defaults load_env_file);
 use Balance::Reconcile ();
 
-our @EXPORT_OK = qw(list_libraries scan_library scan_path empty_trash resolve_library_id apply_plan);
+our @EXPORT_OK = qw(list_libraries scan_library scan_path empty_trash resolve_library_id apply_plan cli_main);
 
 sub defaults {
     return service_defaults('plex');
 }
 
-sub build_plan {
-    my ($class, %args) = @_;
+sub build_plan($class, %args) {
     return Balance::Reconcile::build_plan(service => 'plex', %args);
 }
 
-sub write_report {
-    my ($class, $path, $items) = @_;
+sub write_report($class, $path, $items) {
     Balance::Reconcile::write_report($path, service => 'plex', items => $items);
+    return;
 }
 
 # --- Plex HTTP API ---
 
-sub _url_encode {
-    my ($s) = @_;
+sub _url_encode($s) {
     $s =~ s/([^A-Za-z0-9\-_.~])/sprintf('%%%02X', ord($1))/ge;
     return $s;
 }
 
-sub _api_get {
-    my ($base_url, $token, $path) = @_;
+sub _api_get($base_url, $token, $path) {
     my $url  = "$base_url$path";
     my $resp = HTTP::Tiny->new(timeout => 15)->get($url, {
         headers => {
@@ -45,8 +44,7 @@ sub _api_get {
     return $resp;
 }
 
-sub _api_put {
-    my ($base_url, $token, $path) = @_;
+sub _api_put($base_url, $token, $path) {
     my $url  = "$base_url$path";
     my $resp = HTTP::Tiny->new(timeout => 15)->put($url, {
         headers => {
@@ -57,8 +55,7 @@ sub _api_put {
     return $resp;
 }
 
-sub list_libraries {
-    my (%args) = @_;
+sub list_libraries(%args) {
     my $base_url = $args{base_url} or die "base_url is required\n";
     my $token    = $args{token}    or die "token is required\n";
     my $resp = _api_get($base_url, $token, '/library/sections');
@@ -66,8 +63,7 @@ sub list_libraries {
     return JSON::PP::decode_json($resp->{content});
 }
 
-sub scan_library {
-    my (%args) = @_;
+sub scan_library(%args) {
     my $base_url   = $args{base_url}   or die "base_url is required\n";
     my $token      = $args{token}      or die "token is required\n";
     my $library_id = $args{library_id} or die "library_id is required\n";
@@ -76,8 +72,7 @@ sub scan_library {
     return 1;
 }
 
-sub scan_path {
-    my (%args) = @_;
+sub scan_path(%args) {
     my $base_url   = $args{base_url}   or die "base_url is required\n";
     my $token      = $args{token}      or die "token is required\n";
     my $library_id = $args{library_id} or die "library_id is required\n";
@@ -88,8 +83,7 @@ sub scan_path {
     return 1;
 }
 
-sub empty_trash {
-    my (%args) = @_;
+sub empty_trash(%args) {
     my $base_url   = $args{base_url}   or die "base_url is required\n";
     my $token      = $args{token}      or die "token is required\n";
     my $library_id = $args{library_id} or die "library_id is required\n";
@@ -100,8 +94,7 @@ sub empty_trash {
 
 # Given a Plex path and the already-fetched list_libraries() result, return the
 # section ID whose root path is the longest prefix of the given path.
-sub resolve_library_id {
-    my (%args) = @_;
+sub resolve_library_id(%args) {
     my $path      = $args{path}      // '';
     my $libraries = $args{libraries} or die "libraries is required\n";
     my $sections  = $libraries->{MediaContainer}{Directory} // [];
@@ -114,7 +107,7 @@ sub resolve_library_id {
             next unless length $lp;
             my $matches_prefix   = index($path, $lp) == 0;
             my $matches_boundary = length($path) == length($lp)
-                || substr($path, length($lp), 1) eq '/';
+                || (length($path) > length($lp) && substr($path, length($lp), 1) eq '/');
             if ($matches_prefix && $matches_boundary && length($lp) > $best_len) {
                 $best_id  = $s->{key};
                 $best_len = length $lp;
@@ -126,8 +119,7 @@ sub resolve_library_id {
 
 # Read a plex reconcile plan JSON, scan from/to paths for each planned item,
 # then empty trash for each affected library. Pass dry_run=>1 to preview only.
-sub apply_plan {
-    my (%args) = @_;
+sub apply_plan(%args) {
     my $base_url    = $args{base_url}    or die "base_url is required\n";
     my $token       = $args{token}       or die "token is required\n";
     my $report_file = $args{report_file} or die "report_file is required\n";
@@ -176,11 +168,10 @@ sub apply_plan {
 
 unless (caller) {
     $SIG{PIPE} = sub { exit 0 };
-    exit _cli_main(@ARGV);
+    exit cli_main(@ARGV);
 }
 
-sub _cli_main {
-    my @argv = @_;
+sub cli_main(@argv) {
 
     my $env_file    = '.env';
     my $base_url    = '';
@@ -271,8 +262,7 @@ sub _cli_main {
     }
 }
 
-sub _cli_usage {
-    my ($exit_code, $error) = @_;
+sub _cli_usage($exit_code, $error = undef) {
     print STDERR "$error\n\n" if defined $error && length $error;
     print STDERR <<'USAGE';
 Usage: perl -Ilib lib/Balance/Plex.pm <command> [options]

@@ -1,7 +1,9 @@
 package Balance::ReconcileApp;
 
-use strict;
-use warnings;
+use v5.38;
+use feature qw(signatures try);
+no warnings qw(experimental::try);  ## no critic (TestingAndDebugging::ProhibitNoWarnings)
+use utf8;
 use Exporter 'import';
 use FindBin qw($Bin);
 use Getopt::Long qw(GetOptionsFromArray Configure);
@@ -11,8 +13,7 @@ use Balance::PathMap qw(load_path_map);
 
 our @EXPORT_OK = qw(run);
 
-sub run {
-    my (%args) = @_;
+sub run(%args) {
     my $service_name   = $args{service_name}   or die "service_name is required\n";
     my $service_module = $args{service_module} or die "service_module is required\n";
     my $env_file = "$Bin/../.env";
@@ -36,7 +37,10 @@ sub run {
 
     load_env_file($env_file);
 
-    eval "require $service_module; 1" or die $@;
+    die "Invalid service_module name: $service_module\n"
+        unless $service_module =~ /\A[A-Za-z][A-Za-z0-9]*(?:::[A-Za-z][A-Za-z0-9]*)*\z/;
+    (my $module_path = $service_module) =~ s{::}{/}g;
+    require "$module_path.pm";  ## no critic (Modules::RequireBarewordIncludes)
     my $defaults = $service_module->defaults;
 
     $manifest_file = $defaults->{manifest_file};
@@ -81,8 +85,7 @@ sub run {
     return 0;
 }
 
-sub _usage {
-    my ($service_name, $exit_code, $error) = @_;
+sub _usage($service_name, $exit_code, $error = undef) {
     print STDERR "$error\n\n" if defined $error && length $error;
     print STDERR <<"USAGE";
 Usage: ${service_name}_reconcile.pl [options]
@@ -101,18 +104,18 @@ USAGE
     exit $exit_code;
 }
 
-sub _print_config {
-        my ($service_name, $env_file, $defaults, $manifest_file, $path_map_file, $report_file) = @_;
-        print ucfirst($service_name), " config\n";
-        print "  env file:    $env_file\n";
-        print "  base url:    ", (($defaults->{base_url} || '') || '(unset)'), "\n";
-        print "  credential:  $defaults->{credential_name}=", redact_value($defaults->{credential_value}), "\n"
-                if $defaults->{credential_name};
-        print "  manifest:    $manifest_file\n";
-        print "  path map:    $path_map_file\n";
-        print "  report:      $report_file\n";
-        print "  retry queue: $defaults->{retry_queue_file}\n" if $defaults->{retry_queue_file};
-        print "  library ids: $defaults->{library_ids}\n" if exists $defaults->{library_ids};
+sub _print_config($service_name, $env_file, $defaults, $manifest_file, $path_map_file, $report_file) {
+    print ucfirst($service_name), " config\n";
+    print "  env file:    $env_file\n";
+    print "  base url:    ", (($defaults->{base_url} || '') || '(unset)'), "\n";
+    print "  credential:  $defaults->{credential_name}=", redact_value($defaults->{credential_value}), "\n"
+        if $defaults->{credential_name};
+    print "  manifest:    $manifest_file\n";
+    print "  path map:    $path_map_file\n";
+    print "  report:      $report_file\n";
+    print "  retry queue: $defaults->{retry_queue_file}\n" if $defaults->{retry_queue_file};
+    print "  library ids: $defaults->{library_ids}\n" if exists $defaults->{library_ids};
+    return;
 }
 
 1;
