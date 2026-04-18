@@ -1,273 +1,262 @@
 package Balance::Sonarr;
-
 use v5.38;
-use feature qw(signatures try);
-no warnings qw(experimental::try);  ## no critic (TestingAndDebugging::ProhibitNoWarnings)
+use feature qw(class try);
+no warnings qw(experimental::class experimental::try);  ## no critic (TestingAndDebugging::ProhibitNoWarnings)
 use utf8;
-use Exporter 'import';
-use HTTP::Tiny;
-use JSON::PP ();
-use Getopt::Long qw(GetOptionsFromArray Configure);
-use Balance::Config qw(service_defaults load_env_file);
-use Balance::Reconcile ();
 
-our @EXPORT_OK = qw(get_series rescan_series refresh_series update_series_path resolve_series_id apply_plan cli_main);
+class Balance::Sonarr {  ## no critic (Modules::RequireEndWithOne)
+    use Exporter 'import';
+    use HTTP::Tiny;
+    use JSON::PP ();
+    use Getopt::Long qw(GetOptionsFromArray Configure);
+    use Balance::Config qw(service_defaults load_env_file);
+    use Balance::Reconcile ();
 
-sub defaults {
-    return service_defaults('sonarr');
-}
+    our @EXPORT_OK = qw(resolve_series_id build_plan write_report defaults cli_main);
 
-sub build_plan($class, %args) {
-    return Balance::Reconcile::build_plan(service => 'sonarr', %args);
-}
+    field $base_url :param;
+    field $api_key  :param;
 
-sub write_report($class, $path, $items) {
-    Balance::Reconcile::write_report($path, service => 'sonarr', items => $items);
-    return;
-}
-
-# --- Sonarr HTTP API ---
-
-sub _api_get($base_url, $api_key, $path) {
-    my $resp = HTTP::Tiny->new(timeout => 15)->get("$base_url$path", {
-        headers => { 'X-Api-Key' => $api_key, 'Accept' => 'application/json' },
-    });
-    return $resp;
-}
-
-sub _api_post($base_url, $api_key, $path, $body) {
-    my $json = JSON::PP::encode_json($body);
-    my $resp = HTTP::Tiny->new(timeout => 15)->post("$base_url$path", {
-        headers => {
-            'X-Api-Key'    => $api_key,
-            'Content-Type' => 'application/json',
-            'Accept'       => 'application/json',
-        },
-        content => $json,
-    });
-    return $resp;
-}
-
-sub _api_put($base_url, $api_key, $path, $body) {
-    my $json = JSON::PP::encode_json($body);
-    my $resp = HTTP::Tiny->new(timeout => 30)->put("$base_url$path", {
-        headers => {
-            'X-Api-Key'    => $api_key,
-            'Content-Type' => 'application/json',
-            'Accept'       => 'application/json',
-        },
-        content => $json,
-    });
-    return $resp;
-}
-
-sub get_series(%args) {
-    my $base_url = $args{base_url} or die "base_url is required\n";
-    my $api_key  = $args{api_key}  or die "api_key is required\n";
-    my $resp = _api_get($base_url, $api_key, '/api/v3/series');
-    die "Sonarr API error: $resp->{status} $resp->{reason}\n" unless $resp->{success};
-    return JSON::PP::decode_json($resp->{content});
-}
-
-sub rescan_series(%args) {
-    my $base_url = $args{base_url} or die "base_url is required\n";
-    my $api_key  = $args{api_key}  or die "api_key is required\n";
-    my $series_id = $args{series_id} // die "series_id is required\n";
-    my $resp = _api_post($base_url, $api_key, '/api/v3/command',
-        { name => 'RescanSeries', seriesId => int($series_id) });
-    die "Sonarr API error: $resp->{status} $resp->{reason}\n" unless $resp->{success};
-    return JSON::PP::decode_json($resp->{content});
-}
-
-sub refresh_series(%args) {
-    my $base_url = $args{base_url} or die "base_url is required\n";
-    my $api_key  = $args{api_key}  or die "api_key is required\n";
-    my $series_id = $args{series_id} // die "series_id is required\n";
-    my $resp = _api_post($base_url, $api_key, '/api/v3/command',
-        { name => 'RefreshSeries', seriesIds => [int($series_id)] });
-    die "Sonarr API error: $resp->{status} $resp->{reason}\n" unless $resp->{success};
-    return JSON::PP::decode_json($resp->{content});
-}
-
-# GET series/{id}, update path, PUT back. Returns updated series object.
-sub update_series_path(%args) {
-    my $base_url  = $args{base_url}  or die "base_url is required\n";
-    my $api_key   = $args{api_key}   or die "api_key is required\n";
-    my $series_id = $args{series_id} // die "series_id is required\n";
-    my $new_path  = $args{path}      or die "path is required\n";
-
-    my $get = _api_get($base_url, $api_key, "/api/v3/series/$series_id");
-    die "Sonarr API error getting series: $get->{status} $get->{reason}\n" unless $get->{success};
-    my $series = JSON::PP::decode_json($get->{content});
-    $series->{path} = $new_path;
-    my $put = _api_put($base_url, $api_key, "/api/v3/series/$series_id", $series);
-    die "Sonarr API error updating series: $put->{status} $put->{reason}\n" unless $put->{success};
-    return JSON::PP::decode_json($put->{content});
-}
-
-# Given a NAS/remote path and the already-fetched get_series() array ref, return
-# the series ID whose path is the longest prefix match of the given path.
-# Exact match on series root directory is the expected common case.
-sub resolve_series_id(%args) {
-    my $path   = $args{path}   // '';
-    my $series = $args{series} or die "series is required\n";
-    my ($best_id, $best_len) = (undef, -1);
-    for my $s (@$series) {
-        my $sp = $s->{path} // '';
-        next unless length $sp;
-        # Normalize: strip trailing slash for comparison
-        (my $nsp = $sp) =~ s{/+$}{};
-        next unless length $nsp;  # skip bare-root "/" entries
-        my $matches_prefix   = index($path, $nsp) == 0;
-        my $matches_boundary = length($path) == length($nsp)
-            || (length($path) > length($nsp) && substr($path, length($nsp), 1) eq '/');
-        if ($matches_prefix && $matches_boundary && length($nsp) > $best_len) {
-            $best_id  = $s->{id};
-            $best_len = length $nsp;
-        }
+    ADJUST {
+        die "base_url is required\n" unless length($base_url // '');
+        die "api_key is required\n"  unless length($api_key // '');
     }
-    return $best_id;
-}
 
-# Read a sonarr reconcile plan JSON, update series paths and rescan for each
-# planned item. Pass dry_run=>1 to preview only.
-sub apply_plan(%args) {
-    my $base_url    = $args{base_url}    or die "base_url is required\n";
-    my $api_key     = $args{api_key}     or die "api_key is required\n";
-    my $report_file = $args{report_file} or die "report_file is required\n";
-    my $dry_run     = $args{dry_run}     // 0;
+    # --- Private HTTP helpers ---
 
-    open my $fh, '<', $report_file or die "Can't read report $report_file: $!\n";
-    my $data = JSON::PP::decode_json(do { local $/; <$fh> });
-    close $fh;
+    method _api_get($path) {
+        return HTTP::Tiny->new(timeout => 15)->get("$base_url$path", {
+            headers => { 'X-Api-Key' => $api_key, 'Accept' => 'application/json' },
+        });
+    }
 
-    my @planned = grep { ($_->{reconcile_status} // '') eq 'planned' } @{ $data->{items} // [] };
-    return { planned => 0, updated => 0, rescanned => 0, skipped => 0 } unless @planned;
+    method _api_post($path, $body) {
+        my $json = JSON::PP::encode_json($body);
+        return HTTP::Tiny->new(timeout => 15)->post("$base_url$path", {
+            headers => {
+                'X-Api-Key'    => $api_key,
+                'Content-Type' => 'application/json',
+                'Accept'       => 'application/json',
+            },
+            content => $json,
+        });
+    }
 
-    my $series_list = get_series(base_url => $base_url, api_key => $api_key);
-    my ($updated, $rescanned, $skipped) = (0, 0, 0);
+    method _api_put($path, $body) {
+        my $json = JSON::PP::encode_json($body);
+        return HTTP::Tiny->new(timeout => 30)->put("$base_url$path", {
+            headers => {
+                'X-Api-Key'    => $api_key,
+                'Content-Type' => 'application/json',
+                'Accept'       => 'application/json',
+            },
+            content => $json,
+        });
+    }
 
-    for my $item (@planned) {
-        my $from = $item->{remote_from_path} // '';
-        my $to   = $item->{remote_to_path}   // '';
-        my $id   = resolve_series_id(path => $from, series => $series_list);
+    # --- Public API methods ---
 
-        unless (defined $id) {
-            warn "No series matched for path: $from — skipping\n";
-            $skipped++; next;
-        }
+    method get_series() {
+        my $resp = $self->_api_get('/api/v3/series');
+        die "Sonarr API error: $resp->{status} $resp->{reason}\n" unless $resp->{success};
+        return JSON::PP::decode_json($resp->{content});
+    }
 
-        if ($dry_run) {
-            print "DRY-RUN  series=$id  from=$from\n";
-            print "DRY-RUN  update-path series=$id  to=$to\n" if $to && $to ne $from;
-            print "DRY-RUN  rescan series=$id\n";
-        } else {
-            if ($to && $to ne $from) {
-                update_series_path(base_url => $base_url, api_key => $api_key,
-                                   series_id => $id, path => $to);
-                $updated++;
+    method rescan_series($series_id) {
+        my $resp = $self->_api_post('/api/v3/command',
+            { name => 'RescanSeries', seriesId => int($series_id) });
+        die "Sonarr API error: $resp->{status} $resp->{reason}\n" unless $resp->{success};
+        return JSON::PP::decode_json($resp->{content});
+    }
+
+    method refresh_series($series_id) {
+        my $resp = $self->_api_post('/api/v3/command',
+            { name => 'RefreshSeries', seriesIds => [int($series_id)] });
+        die "Sonarr API error: $resp->{status} $resp->{reason}\n" unless $resp->{success};
+        return JSON::PP::decode_json($resp->{content});
+    }
+
+    # GET series/{id}, update path, PUT back. Returns updated series object.
+    method update_series_path($series_id, $new_path) {
+        my $get = $self->_api_get("/api/v3/series/$series_id");
+        die "Sonarr API error getting series: $get->{status} $get->{reason}\n" unless $get->{success};
+        my $series = JSON::PP::decode_json($get->{content});
+        $series->{path} = $new_path;
+        my $put = $self->_api_put("/api/v3/series/$series_id", $series);
+        die "Sonarr API error updating series: $put->{status} $put->{reason}\n" unless $put->{success};
+        return JSON::PP::decode_json($put->{content});
+    }
+
+    # Read a sonarr reconcile plan JSON, update series paths and rescan for each
+    # planned item. Pass dry_run=>1 to preview only.
+    method apply_plan(%args) {
+        my $report_file = $args{report_file} or die "report_file is required\n";
+        my $dry_run     = $args{dry_run} // 0;
+
+        open my $fh, '<', $report_file or die "Can't read report $report_file: $!\n";
+        my $data = JSON::PP::decode_json(do { local $/; <$fh> });
+        close $fh;
+
+        my @planned = grep { ($_->{reconcile_status} // '') eq 'planned' } @{ $data->{items} // [] };
+        return { planned => 0, updated => 0, rescanned => 0, skipped => 0 } unless @planned;
+
+        my $series_list = $self->get_series();
+        my ($updated, $rescanned, $skipped) = (0, 0, 0);
+
+        for my $item (@planned) {
+            my $from = $item->{remote_from_path} // '';
+            my $to   = $item->{remote_to_path}   // '';
+            my $id   = resolve_series_id(path => $from, series => $series_list);
+
+            unless (defined $id) {
+                warn "No series matched for path: $from — skipping\n";
+                $skipped++; next;
             }
-            rescan_series(base_url => $base_url, api_key => $api_key, series_id => $id);
-            $rescanned++;
+
+            if ($dry_run) {
+                print "DRY-RUN  series=$id  from=$from\n";
+                print "DRY-RUN  update-path series=$id  to=$to\n" if $to && $to ne $from;
+                print "DRY-RUN  rescan series=$id\n";
+            } else {
+                if ($to && $to ne $from) {
+                    $self->update_series_path($id, $to);
+                    $updated++;
+                }
+                $self->rescan_series($id);
+                $rescanned++;
+            }
         }
+
+        return { planned => scalar @planned, updated => $updated,
+                 rescanned => $rescanned, skipped => $skipped };
     }
 
-    return { planned => scalar @planned, updated => $updated,
-             rescanned => $rescanned, skipped => $skipped };
-}
+    # --- Stateless exports (Pattern A) ---
 
-# --- CLI entrypoint (runs only when executed directly, not when used as a module) ---
-
-unless (caller) {
-    $SIG{PIPE} = sub { exit 0 };
-    exit cli_main(@ARGV);
-}
-
-sub cli_main(@argv) {
-
-    my $env_file    = '.env';
-    my $base_url    = '';
-    my $api_key     = '';
-    my $series_id   = '';
-    my $new_path    = '';
-    my $report_file = '';
-    my $dry_run     = 0;
-    my $help        = 0;
-
-    Configure('pass_through');
-    GetOptionsFromArray(
-        \@argv,
-        'env-file=s'     => \$env_file,
-        'base-url=s'     => \$base_url,
-        'api-key=s'      => \$api_key,
-        'series-id=s'    => \$series_id,
-        'path=s'         => \$new_path,
-        'report-file=s'  => \$report_file,
-        'dry-run'        => \$dry_run,
-        'help|h'         => \$help,
-    ) or _cli_usage(2, 'Invalid options.');
-    Configure('no_pass_through');
-
-    my $command = shift @argv // '';
-
-    _cli_usage(0) if $help || !$command;
-    _cli_usage(2, "Unknown command: $command")
-        unless grep { $_ eq $command } qw(series rescan refresh apply dry-run);
-
-    load_env_file($env_file);
-    my $defaults = service_defaults('sonarr');
-    $base_url ||= $defaults->{base_url};
-    $api_key  ||= $defaults->{credential_value};
-
-    die "SONARR_BASE_URL is not set. Use --base-url or set it in $env_file\n" unless $base_url;
-    die "SONARR_API_KEY is not set. Use --api-key or set it in $env_file\n"   unless $api_key;
-
-    if ($command eq 'series') {
-        binmode(STDOUT, ':encoding(UTF-8)');
-        my $list = get_series(base_url => $base_url, api_key => $api_key);
-        printf "%-6s  %-50s  %s\n", 'ID', 'Title', 'Path';
-        print  '-' x 100, "\n";
-        for my $s (sort { ($a->{sortTitle}//'') cmp ($b->{sortTitle}//'') } @$list) {
-            printf "%-6s  %-50s  %s\n",
-                $s->{id} // '', substr($s->{title} // '', 0, 50), $s->{path} // '';
+    # Given a NAS/remote path and the already-fetched get_series() array ref, return
+    # the series ID whose path is the longest prefix match of the given path.
+    sub resolve_series_id(%args) {
+        my $path   = $args{path}   // '';
+        my $series = $args{series} or die "series is required\n";
+        my ($best_id, $best_len) = (undef, -1);
+        for my $s (@$series) {
+            my $sp = $s->{path} // '';
+            next unless length $sp;
+            (my $nsp = $sp) =~ s{/+$}{};
+            next unless length $nsp;
+            my $matches_prefix   = index($path, $nsp) == 0;
+            my $matches_boundary = length($path) == length($nsp)
+                || (length($path) > length($nsp) && substr($path, length($nsp), 1) eq '/');
+            if ($matches_prefix && $matches_boundary && length($nsp) > $best_len) {
+                $best_id  = $s->{id};
+                $best_len = length $nsp;
+            }
         }
+        return $best_id;
+    }
+
+    sub build_plan(%args) {
+        return Balance::Reconcile::build_plan(service => 'sonarr', %args);
+    }
+
+    sub write_report($path, $items) {
+        Balance::Reconcile::write_report($path, service => 'sonarr', items => $items);
+        return;
+    }
+
+    sub defaults() {
+        return service_defaults('sonarr');
+    }
+
+    # --- CLI ---
+
+    sub cli_main(@argv) {
+        my $env_file    = '.env';
+        my $base_url    = '';
+        my $api_key     = '';
+        my $series_id   = '';
+        my $new_path    = '';
+        my $report_file = '';
+        my $dry_run     = 0;
+        my $help        = 0;
+
+        Configure('pass_through');
+        GetOptionsFromArray(
+            \@argv,
+            'env-file=s'     => \$env_file,
+            'base-url=s'     => \$base_url,
+            'api-key=s'      => \$api_key,
+            'series-id=s'    => \$series_id,
+            'path=s'         => \$new_path,
+            'report-file=s'  => \$report_file,
+            'dry-run'        => \$dry_run,
+            'help|h'         => \$help,
+        ) or _cli_usage(2, 'Invalid options.');
+        Configure('no_pass_through');
+
+        my $command = shift @argv // '';
+
+        _cli_usage(0) if $help || !$command;
+        _cli_usage(2, "Unknown command: $command")
+            unless grep { $_ eq $command } qw(series rescan refresh apply dry-run);
+
+        load_env_file($env_file);
+        my $defs = service_defaults('sonarr');
+        $base_url ||= $defs->{base_url};
+        $api_key  ||= $defs->{credential_value};
+
+        die "SONARR_BASE_URL is not set. Use --base-url or set it in $env_file\n" unless $base_url;
+        die "SONARR_API_KEY is not set. Use --api-key or set it in $env_file\n"   unless $api_key;
+
+        my $sonarr = Balance::Sonarr->new(base_url => $base_url, api_key => $api_key);
+
+        if ($command eq 'series') {
+            binmode(STDOUT, ':encoding(UTF-8)');
+            my $list = $sonarr->get_series();
+            printf "%-6s  %-50s  %s\n", 'ID', 'Title', 'Path';
+            print  '-' x 100, "\n";
+            for my $s (sort { ($a->{sortTitle}//'') cmp ($b->{sortTitle}//'') } @$list) {
+                printf "%-6s  %-50s  %s\n",
+                    $s->{id} // '', substr($s->{title} // '', 0, 50), $s->{path} // '';
+            }
+            return 0;
+        }
+
+        if ($command eq 'rescan') {
+            _cli_usage(2, '--series-id is required for rescan') unless $series_id;
+            my $r = $sonarr->rescan_series($series_id);
+            printf "Rescan queued for series %s (command id=%s status=%s)\n",
+                $series_id, $r->{id} // '?', $r->{status} // '?';
+            return 0;
+        }
+
+        if ($command eq 'refresh') {
+            _cli_usage(2, '--series-id is required for refresh') unless $series_id;
+            my $r = $sonarr->refresh_series($series_id);
+            printf "Refresh queued for series %s (command id=%s status=%s)\n",
+                $series_id, $r->{id} // '?', $r->{status} // '?';
+            return 0;
+        }
+
+        if ($command eq 'apply' || $command eq 'dry-run') {
+            $report_file ||= $defs->{report_file};
+            $dry_run = 1 if $command eq 'dry-run';
+            die "Report file not found: $report_file\nRun 'make sonarr-plan' first.\n" unless -f $report_file;
+            my $r = $sonarr->apply_plan(report_file => $report_file, dry_run => $dry_run);
+            printf "%s\n",  $dry_run ? 'Sonarr apply dry-run' : 'Sonarr apply complete';
+            printf "  planned:   %d\n", $r->{planned};
+            printf "  updated:   %d\n", $r->{updated};
+            printf "  rescanned: %d\n", $r->{rescanned};
+            printf "  skipped:   %d\n", $r->{skipped};
+            return 0;
+        }
+
         return 0;
     }
 
-    if ($command eq 'rescan') {
-        _cli_usage(2, '--series-id is required for rescan') unless $series_id;
-        my $r = rescan_series(base_url => $base_url, api_key => $api_key, series_id => $series_id);
-        printf "Rescan queued for series %s (command id=%s status=%s)\n",
-            $series_id, $r->{id} // '?', $r->{status} // '?';
-        return 0;
-    }
-
-    if ($command eq 'refresh') {
-        _cli_usage(2, '--series-id is required for refresh') unless $series_id;
-        my $r = refresh_series(base_url => $base_url, api_key => $api_key, series_id => $series_id);
-        printf "Refresh queued for series %s (command id=%s status=%s)\n",
-            $series_id, $r->{id} // '?', $r->{status} // '?';
-        return 0;
-    }
-
-    if ($command eq 'apply' || $command eq 'dry-run') {
-        $report_file ||= $defaults->{report_file};
-        $dry_run = 1 if $command eq 'dry-run';
-        die "Report file not found: $report_file\nRun 'make sonarr-plan' first.\n" unless -f $report_file;
-        my $r = apply_plan(base_url => $base_url, api_key => $api_key,
-                           report_file => $report_file, dry_run => $dry_run);
-        printf "%s\n",  $dry_run ? 'Sonarr apply dry-run' : 'Sonarr apply complete';
-        printf "  planned:   %d\n", $r->{planned};
-        printf "  updated:   %d\n", $r->{updated};
-        printf "  rescanned: %d\n", $r->{rescanned};
-        printf "  skipped:   %d\n", $r->{skipped};
-        return 0;
-    }
-}
-
-sub _cli_usage($exit_code, $error = undef) {
-    print STDERR "$error\n\n" if defined $error && length $error;
-    print STDERR <<'USAGE';
+    sub _cli_usage($exit_code, $error = undef) {
+        print STDERR "$error\n\n" if defined $error && length $error;
+        print STDERR <<'USAGE';
 Usage: perl -Ilib lib/Balance/Sonarr.pm <command> [options]
 
 Commands:
@@ -288,11 +277,18 @@ Options:
 
 Examples:
   perl -Ilib lib/Balance/Sonarr.pm series
-  perl -Ilib lib/Balance/Sonarr.pm rescan --series-id=2319
-  perl -Ilib lib/Balance/Sonarr.pm dry-run --report-file=artifacts/sonarr-reconcile-plan.json
-  perl -Ilib lib/Balance/Sonarr.pm apply
+  perl -Ilib lib/Balance/Sonarr.pm rescan --series-id=123
+  perl -Ilib lib/Balance/Sonarr.pm refresh --series-id=123
+  perl -Ilib lib/Balance/Sonarr.pm apply --report-file=var/reconcile-plan.json
+  perl -Ilib lib/Balance/Sonarr.pm dry-run --report-file=var/reconcile-plan.json
 USAGE
-    exit $exit_code;
+        exit $exit_code;
+    }
+}
+
+unless (caller) {
+    $SIG{PIPE} = sub { exit 0 };
+    exit Balance::Sonarr::cli_main(@ARGV);
 }
 
 1;

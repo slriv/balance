@@ -92,7 +92,7 @@ subtest 'run processes manifest and returns 0' => sub {
         };
     };
     *{'MockService2::build_plan'} = sub {
-        my ($pkg, %args) = @_;
+        my (%args) = @_;
         return [ map { { %$_, reconcile_status => 'planned' } } @{ $args{records} } ];
     };
     *{'MockService2::write_report'} = sub { return; };
