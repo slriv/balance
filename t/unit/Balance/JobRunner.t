@@ -32,6 +32,19 @@ subtest 'start_job writes command output to log file' => sub {
     like($content, qr/hello from job/, 'log contains job output');
 };
 
+subtest 'start_job invokes on_exit callback with success result' => sub {
+    my $runner = Balance::JobRunner->new(log_dir => $tmp);
+    my $result;
+    $runner->start_job('job-exit', 'echo', 'done', sub ($r) { $result = $r });
+
+    Mojo::IOLoop->timer(2 => sub { Mojo::IOLoop->stop });
+    Mojo::IOLoop->start;
+
+    ok($result->{success}, 'success reported');
+    is($result->{exit_code}, 0, 'exit code recorded');
+    is($result->{signal}, 0, 'no signal recorded');
+};
+
 # --- watch_job: watcher receives live output ---
 
 subtest 'watch_job callback receives output' => sub {

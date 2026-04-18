@@ -34,6 +34,13 @@ subtest 'insert_job dies when another job is running' => sub {
     $store->update_job('job-run', status => 'done');
 };
 
+subtest 'insert_job rolls back cleanly after duplicate id failure' => sub {
+    my $s_dup = Balance::JobStore->new(db_path => ':memory:', log_dir => '/tmp');
+    $s_dup->insert_job('dup-1', 'type_a');
+    dies_ok { $s_dup->insert_job('dup-1', 'type_b') } 'duplicate id dies';
+    lives_ok { $s_dup->insert_job('dup-2', 'type_c') } 'subsequent insert still works';
+};
+
 # --- update_job ---
 
 subtest 'update_job changes status' => sub {

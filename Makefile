@@ -6,7 +6,7 @@ Targets:
   build-test       - Build local test image (balance-test:local) via Dockerfile.test
   test             - Run unit tests in container (prove -Ilib -r t/unit/)
   test-all         - Run all tests in container including integration
-  lint             - Syntax check Perl in container + perlcritic --severity 4; bash check
+	lint             - Syntax check Perl in container + perlcritic --severity 4
   build            - Build production image locally
   rebuild          - Build production image locally (--no-cache)
   package          - Build image + save distributable package to dist/

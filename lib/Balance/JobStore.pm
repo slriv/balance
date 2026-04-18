@@ -38,19 +38,27 @@ class Balance::JobStore {  ## no critic (Modules::RequireEndWithOne)
     # while a job is already running.  Dies if another job is running.
     # Returns $id.
     method insert_job($id, $type) {
-        $_dbh->do('BEGIN IMMEDIATE');
-        my $running = $_dbh->selectrow_arrayref(
-            "SELECT id FROM jobs WHERE status = 'running' LIMIT 1"
-        );
-        if ($running) {
-            $_dbh->do('ROLLBACK');
-            die "A job is already running: $running->[0]\n";
+        my $ok = eval {
+            $_dbh->do('BEGIN IMMEDIATE');
+            my $running = $_dbh->selectrow_arrayref(
+                "SELECT id FROM jobs WHERE status = 'running' LIMIT 1"
+            );
+            if ($running) {
+                die "A job is already running: $running->[0]\n";
+            }
+            $_dbh->do(
+                "INSERT INTO jobs (id, type, status) VALUES (?, ?, 'queued')",
+                {}, $id, $type,
+            );
+            $_dbh->do('COMMIT');
+            return 1;
+        };
+
+        if (!$ok) {
+            my $err = $@ || "insert_job transaction failed\n";
+            eval { $_dbh->do('ROLLBACK') };
+            die $err;
         }
-        $_dbh->do(
-            "INSERT INTO jobs (id, type, status) VALUES (?, ?, 'queued')",
-            {}, $id, $type,
-        );
-        $_dbh->do('COMMIT');
         return $id;
     }
 

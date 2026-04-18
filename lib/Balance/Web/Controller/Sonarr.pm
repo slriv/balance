@@ -14,6 +14,7 @@ sub apply ($c) {
     load_env_file('.env');
     my $defs = service_defaults('sonarr');
     my $job_id = $c->new_job_id('sonarr-apply');
+    my $store = $c->job_store;
     eval { $c->job_store->insert_job($job_id, 'sonarr_apply') };
     if ($@) {
         $c->render(text => "Cannot start: $@", status => 409);
@@ -26,6 +27,14 @@ sub apply ($c) {
     $c->job_runner->start_job($job_id,
         'sonarr_reconcile', 'apply',
         "--report-file=$defs->{report_file}",
+        sub ($result) {
+            my $job = $store->get_job($job_id) or return;
+            return unless ($job->{status} // '') eq 'running';
+            $store->update_job($job_id,
+                status      => $result->{success} ? 'done' : 'failed',
+                finished_at => strftime('%Y-%m-%dT%H:%M:%SZ', gmtime),
+            );
+        },
     );
     $c->redirect_to("/jobs/$job_id");
     return;
@@ -33,8 +42,10 @@ sub apply ($c) {
 
 sub audit ($c) {
     load_env_file('.env');
-    my $audit_file = $ENV{SONARR_AUDIT_REPORT_FILE} || '/artifacts/sonarr-audit-report.json';
+    my $defs = service_defaults('sonarr');
+    my $audit_file = $defs->{audit_report_file};
     my $job_id = $c->new_job_id('sonarr-audit');
+    my $store = $c->job_store;
     eval { $c->job_store->insert_job($job_id, 'sonarr_audit') };
     if ($@) {
         $c->render(text => "Cannot start: $@", status => 409);
@@ -47,6 +58,14 @@ sub audit ($c) {
     $c->job_runner->start_job($job_id,
         'sonarr_reconcile', 'audit',
         "--report-file=$audit_file",
+        sub ($result) {
+            my $job = $store->get_job($job_id) or return;
+            return unless ($job->{status} // '') eq 'running';
+            $store->update_job($job_id,
+                status      => $result->{success} ? 'done' : 'failed',
+                finished_at => strftime('%Y-%m-%dT%H:%M:%SZ', gmtime),
+            );
+        },
     );
     $c->redirect_to("/jobs/$job_id");
     return;
@@ -54,8 +73,10 @@ sub audit ($c) {
 
 sub repair ($c) {
     load_env_file('.env');
-    my $audit_file = $ENV{SONARR_AUDIT_REPORT_FILE} || '/artifacts/sonarr-audit-report.json';
+    my $defs = service_defaults('sonarr');
+    my $audit_file = $defs->{audit_report_file};
     my $job_id = $c->new_job_id('sonarr-repair');
+    my $store = $c->job_store;
     eval { $c->job_store->insert_job($job_id, 'sonarr_repair') };
     if ($@) {
         $c->render(text => "Cannot start: $@", status => 409);
@@ -68,6 +89,14 @@ sub repair ($c) {
     $c->job_runner->start_job($job_id,
         'sonarr_reconcile', 'repair',
         "--report-file=$audit_file",
+        sub ($result) {
+            my $job = $store->get_job($job_id) or return;
+            return unless ($job->{status} // '') eq 'running';
+            $store->update_job($job_id,
+                status      => $result->{success} ? 'done' : 'failed',
+                finished_at => strftime('%Y-%m-%dT%H:%M:%SZ', gmtime),
+            );
+        },
     );
     $c->redirect_to("/jobs/$job_id");
     return;
