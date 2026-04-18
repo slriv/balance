@@ -7,3 +7,7 @@ severity = 4
 # We use open/while/close blocks which are brief; the policy fires on any
 # multi-line scope which is too strict for our idiom
 [-InputOutput::RequireBriefOpen]
+
+# 'index' is the conventional Mojolicious controller action name; renaming to
+# avoid the builtin homonym would break routing conventions.
+[-Subroutines::ProhibitBuiltinHomonyms]

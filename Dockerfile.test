@@ -1,10 +1,13 @@
 FROM alpine:3.20
-RUN apk add --no-cache perl perl-dev coreutils bash curl wget make gcc musl-dev
+RUN apk add --no-cache perl perl-dev coreutils bash curl wget make gcc musl-dev sqlite-dev
 RUN curl -fsSL https://cpanmin.us -o /usr/local/bin/cpanm \
  && chmod +x /usr/local/bin/cpanm \
  && cpanm --curl --notest \
       Test::Exception \
       Test::MockModule \
       Perl::Critic \
+      Mojolicious \
+      DBI \
+      DBD::SQLite \
  && rm -rf ~/.cpanm
 WORKDIR /app

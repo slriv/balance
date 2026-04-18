@@ -1,0 +1,33 @@
+% layout 'main';
+% title 'Plex — balance';
+<h1 class="text-2xl font-bold mb-6">Plex</h1>
+
+<div class="flex flex-wrap gap-4">
+
+  <form method="post" action="/plex/scan" class="bg-gray-800 rounded p-4 w-64">
+    <h2 class="font-semibold mb-2">Scan Library</h2>
+    <p class="text-xs text-gray-400 mb-3">
+      Trigger a Plex library scan. Leave blank to scan all libraries, or enter a section ID.
+    </p>
+    <label class="text-xs text-gray-400 block mb-1">Library ID (optional)</label>
+    <input name="library_id" type="text" placeholder="e.g. 1"
+           class="w-full bg-gray-700 rounded px-2 py-1 text-sm mb-3">
+    <button class="w-full bg-blue-700 hover:bg-blue-600 rounded px-3 py-2 text-sm font-medium">
+      Run Scan
+    </button>
+  </form>
+
+  <form method="post" action="/plex/empty-trash" class="bg-gray-800 rounded p-4 w-64">
+    <h2 class="font-semibold mb-2">Empty Trash</h2>
+    <p class="text-xs text-gray-400 mb-3">
+      Empty the Plex library trash. Leave blank for all libraries.
+    </p>
+    <label class="text-xs text-gray-400 block mb-1">Library ID (optional)</label>
+    <input name="library_id" type="text" placeholder="e.g. 1"
+           class="w-full bg-gray-700 rounded px-2 py-1 text-sm mb-3">
+    <button class="w-full bg-yellow-700 hover:bg-yellow-600 rounded px-3 py-2 text-sm font-medium">
+      Empty Trash
+    </button>
+  </form>
+
+</div>
