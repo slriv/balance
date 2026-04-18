@@ -7,8 +7,9 @@ Targets:
   test             - Run unit tests in container (prove -Ilib -r t/unit/)
   test-all         - Run all tests in container including integration
   lint             - Syntax check Perl in container + perlcritic --severity 4; bash check
-  build            - Build production image locally (Colima)
+  build            - Build production image locally
   rebuild          - Build production image locally (--no-cache)
+  package          - Build image + save distributable package to dist/
   setup-git-hooks  - Enable repo pre-push hook (blocks pushes to main)
 endef
 export HELP_TEXT
@@ -17,7 +18,23 @@ LOCAL_DOCKER  ?= docker
 IMAGE         ?= balance-tv:local
 TEST_IMAGE    ?= balance-test:local
 
-.PHONY: help build-test test test-all lint setup-git-hooks build rebuild
+LOCAL_ARTIFACTS ?= artifacts
+ENV_FILE        ?= .env
+DIST_DIR        ?= dist
+IMAGE_TAR       ?= $(DIST_DIR)/balance-tv.tar
+
+# Base docker run for local dev targets: reads .env, mounts artifacts + config.
+# No media volumes — suitable for plan/dry-run/config inspection locally.
+_LOCAL_RUN = $(LOCAL_DOCKER) run --rm \
+	$(if $(wildcard $(ENV_FILE)),--env-file $(ENV_FILE),) \
+	-v $(CURDIR)/$(LOCAL_ARTIFACTS):/artifacts \
+	-v $(CURDIR)/config:/config \
+	$(IMAGE)
+
+SONARR_RUN ?= $(_LOCAL_RUN) sonarr_reconcile
+PLEX_RUN   ?= $(_LOCAL_RUN) plex_reconcile
+
+.PHONY: help build-test test test-all lint setup-git-hooks build rebuild package
 
 help:
 	@echo "$$HELP_TEXT"
@@ -44,8 +61,6 @@ test-all: build-test
 		$(TEST_IMAGE) prove -Ilib -r t/
 
 lint: build-test
-	@bash -n scripts/nas-helper.sh
-	@bash -n balance_tv.pl
 	@$(LOCAL_DOCKER) run --rm \
 		-v $(CURDIR)/lib:/app/lib \
 		-v $(CURDIR)/bin:/app/bin \
@@ -69,16 +84,24 @@ build:
 rebuild:
 	@$(LOCAL_DOCKER) build --no-cache -t $(IMAGE) .
 
-push-image:
-	@echo "==> Saving $(IMAGE) and loading into NAS docker..."
-	@$(LOCAL_DOCKER) save $(IMAGE) | ssh $(NAS_HOST) "sudo -n $(DOCKER_BIN) load"
+# ----- Distributable package -----
+# Produces dist/balance-tv.tar (Docker image) + dist/balance-tv-release.tar.gz
+# (compose file + config templates + .env.example + load script).
+# Install on any Docker host: see dist/install.sh
 
-pull-artifacts:
-	@mkdir -p '$(LOCAL_ARTIFACTS)'
-	@scp -O '$(NAS_HOST):$(ARTIFACTS_HOST_DIR)/*.jsonl' '$(LOCAL_ARTIFACTS)/' 2>/dev/null || true
-	@scp -O '$(NAS_HOST):$(ARTIFACTS_HOST_DIR)/*.json' '$(LOCAL_ARTIFACTS)/' 2>/dev/null || true
-	@scp -O '$(NAS_HOST):$(ARTIFACTS_HOST_DIR)/*.sh' '$(LOCAL_ARTIFACTS)/' 2>/dev/null || true
-	@echo "==> Artifacts pulled to $(LOCAL_ARTIFACTS)"
+package: build
+	@mkdir -p '$(DIST_DIR)'
+	@echo '==> Saving Docker image to $(IMAGE_TAR)'
+	@$(LOCAL_DOCKER) save -o '$(IMAGE_TAR)' $(IMAGE)
+	@echo '==> Building release archive'
+	@tar -czf '$(DIST_DIR)/balance-tv-release.tar.gz' \
+		docker-compose.yml \
+		.env.example \
+		config/ \
+		scripts/install.sh
+	@echo '==> Package ready in $(DIST_DIR)/'
+	@echo '    Image:   $(IMAGE_TAR)'
+	@echo '    Release: $(DIST_DIR)/balance-tv-release.tar.gz'
 
 # ----- Local: compose config validation -----
 
@@ -157,23 +180,3 @@ POLL_INTERVAL ?= 2
 TIMEOUT       ?= 300
 get-plex-token:
 	@perl scripts/plex_auth.pl --app-name='$(APP_NAME)' --poll-interval='$(POLL_INTERVAL)' --timeout='$(TIMEOUT)'
-
-# ----- NAS: source sync + image build -----
-
-sync:
-	@$(RUN_ENV) $(HELPER) sync
-
-nas-build: sync
-	@$(RUN_ENV) $(HELPER) build
-
-nas-rebuild: sync
-	@$(RUN_ENV) $(HELPER) rebuild
-
-# ----- NAS: planner and apply (need media volumes) -----
-
-help-test smoke run dry-run apply apply-bg apply-logs apply-status apply-stop apply-restart tail-log all:
-	@$(RUN_ENV) $(HELPER) $@
-
-MAX_MOVES ?= 10
-test-apply:
-	@$(RUN_ENV) MAX_MOVES='$(MAX_MOVES)' $(HELPER) test-apply
