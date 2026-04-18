@@ -125,4 +125,75 @@ subtest 'rescan_series dies on API error' => sub {
     $mock_http->unmock('post');
 };
 
+# --- apply_plan ---
+
+subtest 'apply_plan dry-run prints actions and returns counts' => sub {
+    use File::Temp qw(tempfile);
+    my $plan = {
+        items => [
+            { reconcile_status => 'planned',
+              remote_from_path => '/mnt/tv/Show A',
+              remote_to_path   => '/mnt/tv2/Show A' },
+            { reconcile_status => 'ok',
+              remote_from_path => '/mnt/tv/Show B',
+              remote_to_path   => '/mnt/tv2/Show B' },
+        ],
+    };
+    my ($fh, $path) = tempfile(SUFFIX => '.json', UNLINK => 1);
+    print {$fh} JSON::PP::encode_json($plan);
+    close $fh;
+
+    my $series_list = [{ id => 10, path => '/mnt/tv/Show A' }];
+    $mock_http->mock('get', sub { return { success => 1, content => JSON::PP::encode_json($series_list) }; });
+
+    my $sonarr = Balance::Sonarr->new(base_url => 'http://sonarr:8989', api_key => 'testkey');
+    my $out = '';
+    open my $save_out, '>&', \*STDOUT or die;
+    close STDOUT;
+    open STDOUT, '>>', \$out or die;
+    my $r = $sonarr->apply_plan(report_file => $path, dry_run => 1);
+    close STDOUT;
+    open STDOUT, '>&', $save_out or die;
+
+    is($r->{planned},   1, 'one planned item');
+    is($r->{skipped},   0, 'none skipped');
+    like($out, qr/DRY-RUN.*series=10/i, 'dry-run output mentions series id');
+    $mock_http->unmock('get');
+};
+
+subtest 'apply_plan skips items with no matching series' => sub {
+    use File::Temp qw(tempfile);
+    my $plan = {
+        items => [
+            { reconcile_status => 'planned',
+              remote_from_path => '/mnt/nowhere/Show X',
+              remote_to_path   => '/mnt/nowhere2/Show X' },
+        ],
+    };
+    my ($fh, $path) = tempfile(SUFFIX => '.json', UNLINK => 1);
+    print {$fh} JSON::PP::encode_json($plan);
+    close $fh;
+
+    my $series_list = [{ id => 10, path => '/mnt/tv/Show A' }];
+    $mock_http->mock('get', sub { return { success => 1, content => JSON::PP::encode_json($series_list) }; });
+
+    my $sonarr = Balance::Sonarr->new(base_url => 'http://sonarr:8989', api_key => 'testkey');
+    my $r = $sonarr->apply_plan(report_file => $path, dry_run => 1);
+    is($r->{planned}, 1, 'one planned item');
+    is($r->{skipped}, 1, 'unmatched item skipped');
+    $mock_http->unmock('get');
+};
+
+subtest 'apply_plan returns zero counts on empty plan' => sub {
+    use File::Temp qw(tempfile);
+    my $plan = { items => [] };
+    my ($fh, $path) = tempfile(SUFFIX => '.json', UNLINK => 1);
+    print {$fh} JSON::PP::encode_json($plan);
+    close $fh;
+
+    my $sonarr = Balance::Sonarr->new(base_url => 'http://sonarr:8989', api_key => 'testkey');
+    my $r = $sonarr->apply_plan(report_file => $path, dry_run => 1);
+    is($r->{planned}, 0, 'zero planned');
+};
+
 done_testing;

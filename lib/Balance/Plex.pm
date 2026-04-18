@@ -3,10 +3,10 @@ use v5.38;
 use feature qw(class try);
 no warnings qw(experimental::class experimental::try);  ## no critic (TestingAndDebugging::ProhibitNoWarnings)
 use utf8;
+use Balance::WebClient;
 
-class Balance::Plex {  ## no critic (Modules::RequireEndWithOne)
+class Balance::Plex :isa(Balance::WebClient) {  ## no critic (Modules::RequireEndWithOne)
     use Exporter 'import';
-    use HTTP::Tiny;
     use JSON::PP ();
     use Getopt::Long qw(GetOptionsFromArray Configure);
     use Balance::Config qw(service_defaults load_env_file);
@@ -14,12 +14,10 @@ class Balance::Plex {  ## no critic (Modules::RequireEndWithOne)
 
     our @EXPORT_OK = qw(resolve_library_id build_plan write_report defaults cli_main);
 
-    field $base_url :param;
-    field $token    :param;
+    field $token :param;
 
     ADJUST {
-        die "base_url is required\n" unless length($base_url // '');
-        die "token is required\n"    unless length($token // '');
+        die "token is required\n" unless length($token // '');
     }
 
     # --- Private helpers ---
@@ -29,21 +27,15 @@ class Balance::Plex {  ## no critic (Modules::RequireEndWithOne)
         return $s;
     }
 
-    method _api_get($path) {
-        return HTTP::Tiny->new(timeout => 15)->get("$base_url$path", {
-            headers => {
-                'X-Plex-Token' => $token,
-                'Accept'       => 'application/json',
-            },
-        });
+    method _auth_headers() {
+        return { 'X-Plex-Token' => $token, 'Accept' => 'application/json' };
     }
 
+    # _api_get is inherited from Balance::WebClient
+
     method _api_put($path) {
-        return HTTP::Tiny->new(timeout => 15)->put("$base_url$path", {
-            headers => {
-                'X-Plex-Token'   => $token,
-                'Content-Length' => '0',
-            },
+        return $self->_http->put($self->base_url . $path, {
+            headers => { %{$self->_auth_headers()}, 'Content-Length' => '0' },
         });
     }
 

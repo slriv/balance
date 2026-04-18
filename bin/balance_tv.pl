@@ -164,7 +164,11 @@ for my $mnt (@MOUNTS) {
         warn "SKIP: $mnt not a directory\n";
         next;
     }
-    my $df_line = `df -k \Q$mnt\E | tail -1`;
+    open my $df_fh, '-|', 'df', '-k', $mnt
+        or die "Can't run df on $mnt: $!\n";
+    my $df_line;
+    $df_line = $_ while <$df_fh>;
+    close $df_fh;
     my @f = split /\s+/, $df_line;
     my ($total_kb, $used_kb) = ($f[1], $f[2]);
 
@@ -267,7 +271,9 @@ print_state(
 
 # -- Greedy move loop --
 my @moves;
+my $_loop_iter = 0;
 for (1..5000) {  # safety cap
+    $_loop_iter++;
     # delta = how much TV to shed (positive) or absorb (negative)
     my %delta;
     for my $m (@MOUNTS) {
@@ -319,6 +325,8 @@ for (1..5000) {  # safety cap
     $vol{$dst}{tv} += $sz;
     printf "  move: %-45s %s → %s  (%s)\n", qq{"$picked"}, $src, $dst, fmt($sz, $GB) if $verbose;
 }
+warn "balance_tv: greedy loop hit 5000-iteration safety cap — plan may be incomplete\n"
+    if $_loop_iter >= 5000;
 
 # -- Output --
 print_state(

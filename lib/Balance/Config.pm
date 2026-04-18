@@ -20,7 +20,7 @@ sub load_env_file($path) {
         my ($key, $value) = split /\s*=\s*/, $line, 2;
         next unless defined $key && length $key;
         next unless defined $value;
-        $value =~ s/^['"](.*)['"]$/$1/;
+        $value =~ s/^(['"])(.*?)\1$/$2/;
         $ENV{$key} = $value unless exists $ENV{$key};
     }
     close $fh;

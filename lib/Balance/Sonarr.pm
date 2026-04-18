@@ -3,8 +3,9 @@ use v5.38;
 use feature qw(class try);
 no warnings qw(experimental::class experimental::try);  ## no critic (TestingAndDebugging::ProhibitNoWarnings)
 use utf8;
+use Balance::WebClient;
 
-class Balance::Sonarr {  ## no critic (Modules::RequireEndWithOne)
+class Balance::Sonarr :isa(Balance::WebClient) {  ## no critic (Modules::RequireEndWithOne)
     use Exporter 'import';
     use HTTP::Tiny;
     use JSON::PP ();
@@ -14,25 +15,23 @@ class Balance::Sonarr {  ## no critic (Modules::RequireEndWithOne)
 
     our @EXPORT_OK = qw(resolve_series_id build_plan write_report defaults cli_main);
 
-    field $base_url :param;
-    field $api_key  :param;
+    field $api_key :param;
 
     ADJUST {
-        die "base_url is required\n" unless length($base_url // '');
-        die "api_key is required\n"  unless length($api_key // '');
+        die "api_key is required\n" unless length($api_key // '');
     }
 
     # --- Private HTTP helpers ---
 
-    method _api_get($path) {
-        return HTTP::Tiny->new(timeout => 15)->get("$base_url$path", {
-            headers => { 'X-Api-Key' => $api_key, 'Accept' => 'application/json' },
-        });
+    method _auth_headers() {
+        return { 'X-Api-Key' => $api_key, 'Accept' => 'application/json' };
     }
+
+    # _api_get is inherited from Balance::WebClient
 
     method _api_post($path, $body) {
         my $json = JSON::PP::encode_json($body);
-        return HTTP::Tiny->new(timeout => 15)->post("$base_url$path", {
+        return $self->_http->post($self->base_url . $path, {
             headers => {
                 'X-Api-Key'    => $api_key,
                 'Content-Type' => 'application/json',
@@ -44,7 +43,9 @@ class Balance::Sonarr {  ## no critic (Modules::RequireEndWithOne)
 
     method _api_put($path, $body) {
         my $json = JSON::PP::encode_json($body);
-        return HTTP::Tiny->new(timeout => 30)->put("$base_url$path", {
+        # 30s timeout: PUT /series sends the full series object back in the response
+        # and Sonarr may take longer to process a path update than a simple GET.
+        return HTTP::Tiny->new(timeout => 30)->put($self->base_url . $path, {
             headers => {
                 'X-Api-Key'    => $api_key,
                 'Content-Type' => 'application/json',
