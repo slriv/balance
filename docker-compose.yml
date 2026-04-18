@@ -28,7 +28,8 @@ services:
     image: balance-tv:local
     container_name: balance-web
     init: true
-    command: ["balance_web", "daemon", "-l", "http://*:8080"]
+    entrypoint: ["balance_web"]
+    command: ["daemon", "-l", "http://*:8080"]
     restart: unless-stopped
     ports:
       - "${BALANCE_WEB_PORT:-8080}:8080"

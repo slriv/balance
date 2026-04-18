@@ -27,6 +27,11 @@ class Balance::JobRunner {  ## no critic (Modules::RequireEndWithOne)
         require Mojo::IOLoop;
         require Mojo::IOLoop::Stream;
 
+        my $on_exit;
+        if (@cmd && ref($cmd[-1]) eq 'CODE') {
+            $on_exit = pop @cmd;
+        }
+
         File::Path::make_path($log_dir) unless -d $log_dir;
 
         my $log_path = $self->log_path($job_id);
@@ -61,7 +66,16 @@ class Balance::JobRunner {  ## no critic (Modules::RequireEndWithOne)
 
         $stream->on(close => sub {
             close $log_fh;
-            waitpid($pid, 0) if $pid;
+            my $wait_status = 0;
+            if ($pid) {
+                waitpid($pid, 0);
+                $wait_status = $?;
+            }
+            $on_exit->({
+                success   => (($wait_status >> 8) == 0 && ($wait_status & 127) == 0),
+                exit_code => ($wait_status >> 8),
+                signal    => ($wait_status & 127),
+            }) if $on_exit;
             delete $_watchers->{$job_id};
             delete $_children->{$job_id};
         });
