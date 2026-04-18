@@ -39,6 +39,7 @@ sub service_defaults($service) {
         base_url         => $ENV{SONARR_BASE_URL} || '',
         credential_name  => 'SONARR_API_KEY',
         credential_value => $ENV{SONARR_API_KEY} || '',
+        audit_report_file => $ENV{SONARR_AUDIT_REPORT_FILE} || '/artifacts/sonarr-audit-report.json',
         path_map_file    => $ENV{SONARR_PATH_MAP_FILE} || '/config/sonarr-path-map.example',
         report_file      => $ENV{SONARR_REPORT_FILE} || '/artifacts/sonarr-reconcile-plan.json',
         retry_queue_file => $ENV{SONARR_RETRY_QUEUE_FILE} || '/artifacts/sonarr-retry-queue.jsonl',

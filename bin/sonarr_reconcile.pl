@@ -7,7 +7,7 @@ use Balance::ReconcileApp qw(run);
 use Balance::Sonarr qw(cli_main);
 
 # Sub-commands handled by the Sonarr module CLI (apply/dry-run/API ops)
-my @MODULE_CMDS = qw(series rescan refresh apply dry-run);
+my @MODULE_CMDS = qw(series rescan refresh apply dry-run audit repair audit-dry-run repair-dry-run);
 if (@ARGV && grep { $ARGV[0] eq $_ } @MODULE_CMDS) {
     exit cli_main(@ARGV);
 }

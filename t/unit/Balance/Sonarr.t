@@ -70,6 +70,7 @@ subtest 'defaults returns hashref with required keys' => sub {
     my $d = defaults();
     ok(defined $d->{base_url},        'base_url present');
     ok(defined $d->{manifest_file},   'manifest_file present');
+    ok(defined $d->{audit_report_file}, 'audit_report_file present');
     ok(defined $d->{path_map_file},   'path_map_file present');
     ok(defined $d->{report_file},     'report_file present');
 };

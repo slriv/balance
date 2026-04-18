@@ -310,7 +310,7 @@ class Balance::Sonarr :isa(Balance::WebClient) {  ## no critic (Modules::Require
         }
 
         if ($command eq 'audit' || $command eq 'audit-dry-run') {
-            $report_file ||= $defs->{audit_report_file} || '/artifacts/sonarr-audit-report.json';
+            $report_file ||= $defs->{audit_report_file};
             $dry_run = 1 if $command eq 'audit-dry-run';
             my $r = $sonarr->audit(report_file => $report_file, dry_run => $dry_run);
             printf "%s\n", $dry_run ? 'Sonarr audit dry-run' : "Sonarr audit complete: $report_file";
@@ -323,7 +323,7 @@ class Balance::Sonarr :isa(Balance::WebClient) {  ## no critic (Modules::Require
         }
 
         if ($command eq 'repair' || $command eq 'repair-dry-run') {
-            $report_file ||= $defs->{audit_report_file} || '/artifacts/sonarr-audit-report.json';
+            $report_file ||= $defs->{audit_report_file};
             $dry_run = 1 if $command eq 'repair-dry-run';
             die "Audit report not found: $report_file\nRun 'sonarr audit' first.\n" unless -f $report_file;
             my $r = $sonarr->repair(report_file => $report_file, dry_run => $dry_run);
@@ -347,14 +347,18 @@ Commands:
   refresh                Trigger a metadata refresh for a series
   apply                  Apply reconcile plan: update paths + rescan series
   dry-run                Preview apply without making API calls
+    audit                  Audit Sonarr series paths against accessible roots
+    audit-dry-run          Preview audit counts without writing the audit report
+    repair                 Repair fixable audit entries and rescan updated series
+    repair-dry-run         Preview repair actions without changing Sonarr
 
 Options:
   --env-file=PATH        Env file to load (default: .env)
   --base-url=URL         Override SONARR_BASE_URL
   --api-key=KEY          Override SONARR_API_KEY
   --series-id=N          Series ID (required for rescan, refresh)
-  --report-file=PATH     Reconcile plan JSON (default: from env/config)
-  --dry-run              Preview apply actions without calling Sonarr API
+    --report-file=PATH     Reconcile plan JSON or audit report JSON (default: from env/config)
+    --dry-run              Preview actions without calling Sonarr API
   --help, -h             Show this help
 
 Examples:
@@ -363,6 +367,8 @@ Examples:
   perl -Ilib lib/Balance/Sonarr.pm refresh --series-id=123
   perl -Ilib lib/Balance/Sonarr.pm apply --report-file=var/reconcile-plan.json
   perl -Ilib lib/Balance/Sonarr.pm dry-run --report-file=var/reconcile-plan.json
+    perl -Ilib lib/Balance/Sonarr.pm audit --report-file=var/sonarr-audit-report.json
+    perl -Ilib lib/Balance/Sonarr.pm repair-dry-run --report-file=var/sonarr-audit-report.json
 USAGE
         exit $exit_code;
     }
