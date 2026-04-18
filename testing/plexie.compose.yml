@@ -1,0 +1,167 @@
+services:
+  plex:
+    container_name: plex
+    image: plexinc/pms-docker
+    environment:
+      - TZ=America/Los_Angeles
+      - PUID=5000
+      - PGID=5000
+    network_mode: host
+    volumes:
+      - /home/plex/config:/config
+      - /dev/shm:/transcode
+      - /home/plex/backups:/backups
+      - music:/music
+      - tvshowsUHD:/tvuhd
+      - tvshows:/tv
+      - tvshows2:/tv2
+      - tvshows3:/tv3
+      - tvshows4:/tv4
+      - tvnas2:/tvnas2
+      - movies:/movies
+      - moviesUHD:/moviesuhd
+      - photos:/photos
+      - books:/books
+      - dvr:/dvr
+      - homevideo:/homevideo
+    restart: unless-stopped
+    devices:
+      - /dev/dri:/dev/dri
+#  subsonic:
+#    container_name: subsonic
+#    image: cyrilix/subsonic
+#    restart: unless-stopped
+#    environment:
+#      - TZ=America/Los_Angeles
+#      - PUID=5000
+#      - PGID=5000
+#      - PORT=8080
+#      - CONTEXT_PATH=/
+#    ports:
+#      - 8080:8080
+#    volumes:
+#      - music:/opt/music/:ro
+
+  # tautulli:
+  #   image: ghcr.io/tautulli/tautulli
+  #   container_name: tautulli
+  #   restart: unless-stopped
+  #   volumes:
+  #     - /home/tautulli/config:/config
+  #   environment:
+  #     - PUID=5001
+  #     - PGID=5000
+  #     - TZ=America/Los_Angeles
+  #   ports:
+  #     - 8181:8181
+# tdarr:
+#   container_name: tdarr
+#   image: ghcr.io/haveagitgat/tdarr:latest
+#   restart: unless-stopped
+#   network_mode: bridge
+#   ports:
+#     - 8265:8265 # webUI port
+#     - 8266:8266 # server port
+#     - 8267:8267 # Internal node port
+#     - 8268:8268 # Example extra node port
+#   environment:
+#     - TZ=America/Los_Angeles
+#     - PUID=5006
+#     - PGID=5000
+#     - UMASK_SET=002
+#     - serverIP=0.0.0.0
+#     - serverPort=8266
+#     - webUIPort=8265
+#     - internalNode=true
+#     - nodeID=PlexieInternalNode
+#   volumes:
+#     - /home/tdarr/server:/app/server
+#     - /home/tdarr/configs:/app/configs
+#     - /home/tdarr/logs:/app/logs
+#     - movies:/media
+#     - tvshows:/tv
+#     - /home/tdarr/workspace:/temp
+# navidrome:
+#   container_name: navidrome
+#   image: deluan/navidrome:latest
+#   user: 5002:5000 # should be owner of volumes
+#   ports:
+#     - "4533:4533"
+#   restart: unless-stopped
+#   environment:
+#   # Optional: put your config options customization here. Examples:
+#     ND_SCANSCHEDULE: 1h
+#     ND_LOGLEVEL: info  
+#     ND_SESSIONTIMEOUT: 24h
+#     ND_BASEURL: ""
+#   volumes:
+#     - "/home/navidrome/data:/data"
+#     - "music:/music:ro"
+volumes:
+  music:
+    driver_opts:
+      type: nfs
+      o: addr=10.0.0.10,nolock,soft,rw
+      device: ":/volume1/Music/Library"
+  tvshowsUHD:
+    driver_opts:
+      type: nfs
+      o: addr=10.0.0.10,nolock,soft,rw
+      device: ":/volume1/4k/TV Shows"
+  tvshows:
+    driver_opts:
+      type: nfs
+      o: addr=10.0.0.10,nolock,soft,rw
+      device: ":/volume2/TV"
+  tvshows2:
+    driver_opts:
+      type: nfs
+      o: addr=10.0.0.10,nolock,soft,rw
+      device: ":/volumeUSB1/usbshare"
+  tvshows3:
+    driver_opts:
+      type: nfs
+      o: addr=10.0.0.10,nolock,soft,rw
+      device: ":/volumeUSB2/usbshare"
+  tvshows4:
+    driver_opts:
+      type: nfs
+      o: addr=10.0.0.10,nolock,soft,rw
+      device: ":/volumeUSB3/usbshare"
+  tvnas2:
+    driver_opts:
+      type: nfs
+      o: addr=10.0.0.11,nolock,soft,rw
+      device: ":/volume1/tvnas2"
+  movies:
+    driver_opts:
+      type: nfs
+      o: addr=10.0.0.10,nolock,soft,rw
+      device: ":/volume1/Movies"
+  moviesUHD:
+    driver_opts:
+      type: nfs
+      o: addr=10.0.0.10,nolock,soft,rw
+      device: ":/volume1/4k/movies"
+  books:
+    driver_opts:
+      type: nfs
+      o: addr=10.0.0.10,nolock,soft,rw
+      device: ":/volume1/Books"
+  photos:
+    driver_opts:
+      type: nfs
+      o: addr=10.0.0.10,nolock,soft,rw
+      device: ":/volume1/photos"
+  dvr:
+    driver_opts:
+      type: nfs
+      o: addr=10.0.0.10,nolock,soft,rw
+      device: ":/volume1/video/DVR"
+  homevideo:
+    driver_opts:
+      type: nfs
+      o: addr=10.0.0.10,nolock,soft,rw
+      device: ":/volume1/video/Home Videos"
+
+
