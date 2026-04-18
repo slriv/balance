@@ -6,7 +6,7 @@ no warnings qw(experimental::try);  ## no critic (TestingAndDebugging::ProhibitN
 use utf8;
 use Exporter 'import';
 
-our @EXPORT_OK = qw(load_path_map translate_path);
+our @EXPORT_OK = qw(load_path_map translate_path reverse_translate_path nas_roots);
 
 sub load_path_map($path) {
     open my $fh, '<', $path or die "Can't read path map file $path: $!\n";
@@ -41,6 +41,27 @@ sub translate_path($maps, $path) {
         return $map->{to} . substr($path, length($from));
     }
     return;
+}
+
+# Reverse translation: service path -> NAS path.
+# Sorted longest-to-first on the 'to' side (mirrors load_path_map sort on 'from').
+sub reverse_translate_path($maps, $path) {
+    return unless defined $path;
+    my @rev = sort { length($b->{to}) <=> length($a->{to}) } @{ $maps || [] };
+    for my $map (@rev) {
+        my $to = $map->{to};
+        next unless index($path, $to) == 0;
+        next if length($path) > length($to) && substr($path, length($to), 1) ne '/';
+        return $map->{from} . substr($path, length($to));
+    }
+    return;
+}
+
+# Return the unique list of NAS-side roots (the 'from' side of each map entry),
+# in the order they appear after load_path_map's longest-first sort.
+sub nas_roots($maps) {
+    my %seen;
+    return [ grep { !$seen{$_}++ } map { $_->{from} } @{ $maps || [] } ];
 }
 
 1;

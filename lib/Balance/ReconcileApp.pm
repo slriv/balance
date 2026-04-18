@@ -41,7 +41,8 @@ sub run(%args) {
         unless $service_module =~ /\A[A-Za-z][A-Za-z0-9]*(?:::[A-Za-z][A-Za-z0-9]*)*\z/;
     (my $module_path = $service_module) =~ s{::}{/}g;
     require "$module_path.pm";  ## no critic (Modules::RequireBarewordIncludes)
-    my $defaults = $service_module->defaults;
+    my $defaults_fn = $service_module->can('defaults') or die "$service_module has no defaults sub\n";
+    my $defaults = $defaults_fn->();
 
     $manifest_file = $defaults->{manifest_file};
     $path_map_file = $defaults->{path_map_file};
@@ -64,6 +65,9 @@ sub run(%args) {
     die "Path map file not found: $path_map_file\n"
         unless -f $path_map_file;
 
+    my $build_plan_fn   = $service_module->can('build_plan')   or die "$service_module has no build_plan sub\n";
+    my $write_report_fn = $service_module->can('write_report') or die "$service_module has no write_report sub\n";
+
     my $records = successful_apply_records(read_manifest($manifest_file));
     if (defined $limit && $limit >= 0 && @$records > $limit) {
         @$records = @$records[0 .. $limit - 1] if $limit > 0;
@@ -71,8 +75,8 @@ sub run(%args) {
     }
 
     my $path_map = load_path_map($path_map_file);
-    my $items = $service_module->build_plan(records => $records, path_map => $path_map);
-    $service_module->write_report($report_file, $items);
+    my $items = $build_plan_fn->(records => $records, path_map => $path_map);
+    $write_report_fn->($report_file, $items);
 
     my $planned = scalar grep { ($_->{reconcile_status} // '') eq 'planned' } @$items;
     my $pending = scalar grep { ($_->{reconcile_status} // '') eq 'pending' } @$items;
