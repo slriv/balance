@@ -138,4 +138,81 @@ subtest 'empty_trash calls API and returns 1' => sub {
     $mock_http->unmock('put');
 };
 
+# --- apply_plan ---
+
+subtest 'apply_plan dry-run prints actions and returns counts' => sub {
+    use File::Temp qw(tempfile);
+    my $plan = {
+        items => [
+            { reconcile_status => 'planned',
+              remote_from_path => '/mnt/tv/Show A',
+              remote_to_path   => '/mnt/tv/Show A moved' },
+            { reconcile_status => 'ok',
+              remote_from_path => '/mnt/tv/Show B',
+              remote_to_path   => '/mnt/tv/Show B moved' },
+        ],
+    };
+    my ($fh, $path) = tempfile(SUFFIX => '.json', UNLINK => 1);
+    print {$fh} JSON::PP::encode_json($plan);
+    close $fh;
+
+    # list_libraries response
+    my $libraries = { MediaContainer => { Directory =>
+        { key => '2', title => 'TV', type => 'show', Location => { path => '/mnt/tv' } }
+    } };
+    $mock_http->mock('get', sub { return { success => 1, content => JSON::PP::encode_json($libraries) }; });
+
+    my $plex = Balance::Plex->new(base_url => 'http://plex:32400', token => 'tok');
+    my $out = '';
+    open my $save_out, '>&', \*STDOUT or die;
+    close STDOUT;
+    open STDOUT, '>>', \$out or die;
+    my $r = $plex->apply_plan(report_file => $path, dry_run => 1);
+    close STDOUT;
+    open STDOUT, '>&', $save_out or die;
+
+    is($r->{planned}, 1, 'one planned item');
+    is($r->{skipped}, 0, 'none skipped');
+    is(scalar @{$r->{trash_emptied}}, 1, 'one library queued for trash');
+    like($out, qr/DRY-RUN.*lib=2/i, 'dry-run output mentions library id');
+    $mock_http->unmock('get');
+};
+
+subtest 'apply_plan skips items with no matching library' => sub {
+    use File::Temp qw(tempfile);
+    my $plan = {
+        items => [
+            { reconcile_status => 'planned',
+              remote_from_path => '/mnt/nowhere/Show X',
+              remote_to_path   => '/mnt/nowhere2/Show X' },
+        ],
+    };
+    my ($fh, $path) = tempfile(SUFFIX => '.json', UNLINK => 1);
+    print {$fh} JSON::PP::encode_json($plan);
+    close $fh;
+
+    my $libraries = { MediaContainer => { Directory =>
+        { key => '2', title => 'TV', type => 'show', Location => { path => '/mnt/tv' } }
+    } };
+    $mock_http->mock('get', sub { return { success => 1, content => JSON::PP::encode_json($libraries) }; });
+
+    my $plex = Balance::Plex->new(base_url => 'http://plex:32400', token => 'tok');
+    my $r = $plex->apply_plan(report_file => $path, dry_run => 1);
+    is($r->{planned}, 1, 'one planned item');
+    is($r->{skipped}, 1, 'unmatched item skipped');
+    $mock_http->unmock('get');
+};
+
+subtest 'apply_plan returns zero counts on empty plan' => sub {
+    use File::Temp qw(tempfile);
+    my $plan = { items => [] };
+    my ($fh, $path) = tempfile(SUFFIX => '.json', UNLINK => 1);
+    print {$fh} JSON::PP::encode_json($plan);
+    close $fh;
+
+    my $plex = Balance::Plex->new(base_url => 'http://plex:32400', token => 'tok');
+    my $r = $plex->apply_plan(report_file => $path, dry_run => 1);
+    is($r->{planned}, 0, 'zero planned');
+};
+
 done_testing;

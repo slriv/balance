@@ -37,7 +37,7 @@ subtest 'load_env_file does not override existing env vars' => sub {
     is($ENV{TEST_KEY_CFG2}, 'already_set', 'existing env var not overridden');
 };
 
-subtest 'load_env_file strips quotes' => sub {
+subtest 'load_env_file strips matching single quotes' => sub {
     my ($fh, $path) = tempfile(UNLINK => 1);
     print {$fh} "TEST_KEY_CFG3='quoted_value'\n";
     close $fh;
@@ -46,6 +46,28 @@ subtest 'load_env_file strips quotes' => sub {
     load_env_file($path);
     is($ENV{TEST_KEY_CFG3}, 'quoted_value', 'strips single quotes');
     delete $ENV{TEST_KEY_CFG3};
+};
+
+subtest 'load_env_file strips matching double quotes' => sub {
+    my ($fh, $path) = tempfile(UNLINK => 1);
+    print {$fh} "TEST_KEY_DQUOTE=\"double_quoted\"\n";
+    close $fh;
+
+    delete $ENV{TEST_KEY_DQUOTE};
+    load_env_file($path);
+    is($ENV{TEST_KEY_DQUOTE}, 'double_quoted', 'strips double quotes');
+    delete $ENV{TEST_KEY_DQUOTE};
+};
+
+subtest 'load_env_file does not strip mismatched quotes' => sub {
+    my ($fh, $path) = tempfile(UNLINK => 1);
+    print {$fh} "TEST_KEY_MISMATCH='mismatch\"\n";
+    close $fh;
+
+    delete $ENV{TEST_KEY_MISMATCH};
+    load_env_file($path);
+    is($ENV{TEST_KEY_MISMATCH}, q{'mismatch"}, 'mismatched quotes not stripped');
+    delete $ENV{TEST_KEY_MISMATCH};
 };
 
 subtest 'load_env_file skips comments and blank lines' => sub {
