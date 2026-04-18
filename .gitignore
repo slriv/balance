@@ -6,3 +6,4 @@ local/
 testing/
 *.log
 artifacts/
+dist/

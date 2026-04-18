@@ -1,36 +1,30 @@
 services:
   balance:
-    build:
-      context: .
     image: balance-tv:local
     container_name: balance-tv
     init: true
     command: ["--threshold=20", "--plan-file=/artifacts/balance-plan.sh", "--log-file=/artifacts/balance-plan.log"]
     volumes:
-      - /volume2/TV:/tv:ro
-      - /volumeUSB1/usbshare:/tv2:ro
-      - /volumeUSB2/usbshare:/tv3:ro
-      - /volume1/tvnas2mount/tvnas2:/tvnas2:ro
-      - ${ARTIFACTS_HOST_DIR:-/volume1/docker/balance/artifacts}:/artifacts
+      - ${TV_PATH_1:-/srv/tv}:/tv:ro
+      - ${TV_PATH_2:-/srv/tv2}:/tv2:ro
+      - ${TV_PATH_3:-/srv/tv3}:/tv3:ro
+      - ${TV_PATH_4:-/srv/tvnas2}:/tvnas2:ro
+      - ${ARTIFACTS_DIR:-./artifacts}:/artifacts
 
   balance_apply:
-    build:
-      context: .
     image: balance-tv:local
     container_name: balance-tv-apply
     init: true
     command: ["--threshold=20", "--plan-file=/artifacts/balance-plan.sh", "--manifest-file=/artifacts/balance-apply-manifest.jsonl", "--log-file=/artifacts/balance-apply.log", "--apply"]
     restart: on-failure:3
     volumes:
-      - /volume2/TV:/tv
-      - /volumeUSB1/usbshare:/tv2
-      - /volumeUSB2/usbshare:/tv3
-      - /volume1/tvnas2mount/tvnas2:/tvnas2
-      - ${ARTIFACTS_HOST_DIR:-/volume1/docker/balance/artifacts}:/artifacts
+      - ${TV_PATH_1:-/srv/tv}:/tv
+      - ${TV_PATH_2:-/srv/tv2}:/tv2
+      - ${TV_PATH_3:-/srv/tv3}:/tv3
+      - ${TV_PATH_4:-/srv/tvnas2}:/tvnas2
+      - ${ARTIFACTS_DIR:-./artifacts}:/artifacts
 
   balance_web:
-    build:
-      context: .
     image: balance-tv:local
     container_name: balance-web
     init: true
@@ -41,16 +35,16 @@ services:
     environment:
       - BALANCE_JOB_DB=/artifacts/balance-jobs.db
       - BALANCE_JOB_LOG_DIR=/artifacts/jobs
-      - SONARR_URL
+      - SONARR_BASE_URL
       - SONARR_API_KEY
-      - PLEX_URL
+      - PLEX_BASE_URL
       - PLEX_TOKEN
     volumes:
-      - /volume2/TV:/tv:ro
-      - /volumeUSB1/usbshare:/tv2:ro
-      - /volumeUSB2/usbshare:/tv3:ro
-      - /volume1/tvnas2mount/tvnas2:/tvnas2:ro
-      - ${ARTIFACTS_HOST_DIR:-/volume1/docker/balance/artifacts}:/artifacts
-      - ${CONFIG_HOST_DIR:-/volume1/docker/balance/config}:/config
+      - ${TV_PATH_1:-/srv/tv}:/tv:ro
+      - ${TV_PATH_2:-/srv/tv2}:/tv2:ro
+      - ${TV_PATH_3:-/srv/tv3}:/tv3:ro
+      - ${TV_PATH_4:-/srv/tvnas2}:/tvnas2:ro
+      - ${ARTIFACTS_DIR:-./artifacts}:/artifacts
+      - ${CONFIG_DIR:-./config}:/config
 
 
