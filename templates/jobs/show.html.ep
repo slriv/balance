@@ -1,0 +1,58 @@
+% layout 'main';
+% title "Job $job->{id} — balance";
+<div class="flex items-center gap-4 mb-6">
+  <h1 class="text-2xl font-bold">Job</h1>
+  <span class="font-mono text-sm text-gray-400"><%= $job->{id} %></span>
+  <span class="px-2 py-0.5 rounded text-xs font-medium
+    <%= $job->{status} eq 'running'   ? 'bg-blue-700'  :
+        $job->{status} eq 'done'      ? 'bg-green-700' :
+        $job->{status} eq 'failed'    ? 'bg-red-700'   :
+        $job->{status} eq 'cancelled' ? 'bg-yellow-700':
+                                        'bg-gray-700'   %>">
+    <%= $job->{status} %>
+  </span>
+  % if ($job->{status} eq 'running') {
+  <form method="post" action="/jobs/<%= $job->{id} %>/cancel" class="ml-auto">
+    <button class="px-3 py-1 bg-red-700 hover:bg-red-600 rounded text-sm">Cancel</button>
+  </form>
+  % }
+</div>
+
+<dl class="grid grid-cols-2 gap-2 text-sm mb-6 max-w-md">
+  <dt class="text-gray-400">Type</dt>    <dd><%= $job->{type} %></dd>
+  <dt class="text-gray-400">Created</dt> <dd class="text-xs font-mono"><%= $job->{created_at} %></dd>
+  % if ($job->{started_at}) {
+  <dt class="text-gray-400">Started</dt> <dd class="text-xs font-mono"><%= $job->{started_at} %></dd>
+  % }
+  % if ($job->{finished_at}) {
+  <dt class="text-gray-400">Finished</dt><dd class="text-xs font-mono"><%= $job->{finished_at} %></dd>
+  % }
+</dl>
+
+<section>
+  <h2 class="text-sm font-semibold text-gray-400 mb-2">Output Log</h2>
+  <pre id="log"
+       class="bg-black text-green-400 font-mono text-xs p-4 rounded overflow-auto h-96 whitespace-pre-wrap"
+  ></pre>
+</section>
+
+<script>
+(function() {
+  const jobId   = "<%= $job->{id} %>";
+  const status  = "<%= $job->{status} %>";
+  const logEl   = document.getElementById('log');
+  const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const ws      = new WebSocket(wsProto + '//' + location.host + '/jobs/' + jobId + '/stream');
+
+  ws.onmessage = function(e) {
+    logEl.textContent += e.data;
+    logEl.scrollTop = logEl.scrollHeight;
+  };
+
+  ws.onclose = function() {
+    if (status === 'running') {
+      logEl.textContent += '\n[connection closed — reload to refresh status]';
+    }
+  };
+})();
+</script>

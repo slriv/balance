@@ -1,0 +1,53 @@
+% layout 'main';
+% title 'Dashboard — balance';
+<h1 class="text-2xl font-bold mb-6">Dashboard</h1>
+
+<section class="mb-8">
+  <h2 class="text-lg font-semibold mb-3 text-gray-300">Volume State</h2>
+  % if (@$mounts) {
+  <table class="w-full text-sm border-collapse">
+    <thead><tr class="text-left text-gray-400 border-b border-gray-700">
+      <th class="pb-2 pr-4">Mount</th>
+      <th class="pb-2 pr-4">Used</th>
+    </tr></thead>
+    <tbody>
+    % for my $m (@$mounts) {
+      <tr class="border-b border-gray-800">
+        <td class="py-1 pr-4 font-mono text-xs"><%= $m %></td>
+        <td class="py-1 pr-4"><%= $vol->{$m}{fmt} %></td>
+      </tr>
+    % }
+    </tbody>
+  </table>
+  % } else {
+  <p class="text-gray-500 text-sm">No TV mounts detected. Check container volume configuration.</p>
+  % }
+</section>
+
+<section>
+  <h2 class="text-lg font-semibold mb-3 text-gray-300">Recent Jobs</h2>
+  % if (@$jobs) {
+  <table class="w-full text-sm border-collapse">
+    <thead><tr class="text-left text-gray-400 border-b border-gray-700">
+      <th class="pb-2 pr-4">ID</th>
+      <th class="pb-2 pr-4">Type</th>
+      <th class="pb-2 pr-4">Status</th>
+      <th class="pb-2">Created</th>
+    </tr></thead>
+    <tbody>
+    % for my $job (@$jobs) {
+      <tr class="border-b border-gray-800 hover:bg-gray-800">
+        <td class="py-1 pr-4 font-mono text-xs">
+          <a href="/jobs/<%= $job->{id} %>" class="text-blue-400 hover:underline"><%= $job->{id} %></a>
+        </td>
+        <td class="py-1 pr-4"><%= $job->{type} %></td>
+        <td class="py-1 pr-4"><%= $job->{status} %></td>
+        <td class="py-1 text-gray-400 text-xs"><%= $job->{created_at} %></td>
+      </tr>
+    % }
+    </tbody>
+  </table>
+  % } else {
+  <p class="text-gray-500 text-sm">No jobs yet.</p>
+  % }
+</section>

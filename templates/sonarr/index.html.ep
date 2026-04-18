@@ -1,0 +1,39 @@
+% layout 'main';
+% title 'Sonarr — balance';
+<h1 class="text-2xl font-bold mb-6">Sonarr</h1>
+
+<div class="flex flex-wrap gap-4">
+
+  <form method="post" action="/sonarr/apply" class="bg-gray-800 rounded p-4 w-64">
+    <h2 class="font-semibold mb-2">Apply Reconcile Plan</h2>
+    <p class="text-xs text-gray-400 mb-4">
+      Reads the reconcile plan JSON and updates Sonarr series paths, then triggers rescans.
+    </p>
+    <button class="w-full bg-blue-700 hover:bg-blue-600 rounded px-3 py-2 text-sm font-medium">
+      Run Apply
+    </button>
+  </form>
+
+  <form method="post" action="/sonarr/audit" class="bg-gray-800 rounded p-4 w-64">
+    <h2 class="font-semibold mb-2">Audit Series</h2>
+    <p class="text-xs text-gray-400 mb-4">
+      Checks every Sonarr series path against disk. Produces a JSON report with
+      ok / missing / fixable / ambiguous status per series.
+    </p>
+    <button class="w-full bg-yellow-700 hover:bg-yellow-600 rounded px-3 py-2 text-sm font-medium">
+      Run Audit
+    </button>
+  </form>
+
+  <form method="post" action="/sonarr/repair" class="bg-gray-800 rounded p-4 w-64">
+    <h2 class="font-semibold mb-2">Repair Fixable Series</h2>
+    <p class="text-xs text-gray-400 mb-4">
+      Reads the audit report and updates Sonarr paths for all <em>fixable</em> entries,
+      then triggers rescans. Run Audit first.
+    </p>
+    <button class="w-full bg-green-700 hover:bg-green-600 rounded px-3 py-2 text-sm font-medium">
+      Run Repair
+    </button>
+  </form>
+
+</div>

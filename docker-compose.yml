@@ -28,4 +28,29 @@ services:
       - /volume1/tvnas2mount/tvnas2:/tvnas2
       - ${ARTIFACTS_HOST_DIR:-/volume1/docker/balance/artifacts}:/artifacts
 
+  balance_web:
+    build:
+      context: .
+    image: balance-tv:local
+    container_name: balance-web
+    init: true
+    command: ["balance_web", "daemon", "-l", "http://*:8080"]
+    restart: unless-stopped
+    ports:
+      - "${BALANCE_WEB_PORT:-8080}:8080"
+    environment:
+      - BALANCE_JOB_DB=/artifacts/balance-jobs.db
+      - BALANCE_JOB_LOG_DIR=/artifacts/jobs
+      - SONARR_URL
+      - SONARR_API_KEY
+      - PLEX_URL
+      - PLEX_TOKEN
+    volumes:
+      - /volume2/TV:/tv:ro
+      - /volumeUSB1/usbshare:/tv2:ro
+      - /volumeUSB2/usbshare:/tv3:ro
+      - /volume1/tvnas2mount/tvnas2:/tvnas2:ro
+      - ${ARTIFACTS_HOST_DIR:-/volume1/docker/balance/artifacts}:/artifacts
+      - ${CONFIG_HOST_DIR:-/volume1/docker/balance/config}:/config
+
 

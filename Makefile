@@ -29,6 +29,8 @@ test: build-test
 	@$(LOCAL_DOCKER) run --rm \
 		-v $(CURDIR)/lib:/app/lib \
 		-v $(CURDIR)/t:/app/t \
+		-v $(CURDIR)/templates:/app/templates \
+		-v $(CURDIR)/public:/app/public \
 		-w /app \
 		$(TEST_IMAGE) prove -Ilib -r t/unit/
 
@@ -36,6 +38,8 @@ test-all: build-test
 	@$(LOCAL_DOCKER) run --rm \
 		-v $(CURDIR)/lib:/app/lib \
 		-v $(CURDIR)/t:/app/t \
+		-v $(CURDIR)/templates:/app/templates \
+		-v $(CURDIR)/public:/app/public \
 		-w /app \
 		$(TEST_IMAGE) prove -Ilib -r t/
 
@@ -50,7 +54,7 @@ lint: build-test
 		-v $(CURDIR)/.perlcriticrc:/app/.perlcriticrc \
 		-w /app \
 		$(TEST_IMAGE) sh -c \
-		'perl -Ilib -c bin/balance_tv.pl && perl -Ilib -c bin/sonarr_reconcile.pl && perl -Ilib -c bin/plex_reconcile.pl && perlcritic --profile /app/.perlcriticrc --severity 4 lib/ bin/'
+		'perl -Ilib -c bin/balance_tv.pl && perl -Ilib -c bin/sonarr_reconcile.pl && perl -Ilib -c bin/plex_reconcile.pl && perl -Ilib -c bin/balance_web.pl && perlcritic --profile /app/.perlcriticrc --severity 4 lib/ bin/'
 
 setup-git-hooks:
 	@git config core.hooksPath .githooks
