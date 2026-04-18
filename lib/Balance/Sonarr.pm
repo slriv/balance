@@ -12,6 +12,7 @@ class Balance::Sonarr :isa(Balance::WebClient) {  ## no critic (Modules::Require
     use Getopt::Long qw(GetOptionsFromArray Configure);
     use Balance::Config qw(service_defaults load_env_file);
     use Balance::Reconcile ();
+    use Balance::AuditSonarr ();  # called as Balance::AuditSonarr::* so mocks intercept
 
     our @EXPORT_OK = qw(resolve_series_id build_plan write_report defaults cli_main);
 
@@ -86,6 +87,62 @@ class Balance::Sonarr :isa(Balance::WebClient) {  ## no critic (Modules::Require
         my $put = $self->_api_put("/api/v3/series/$series_id", $series);
         die "Sonarr API error updating series: $put->{status} $put->{reason}\n" unless $put->{success};
         return JSON::PP::decode_json($put->{content});
+    }
+
+    # Return all Sonarr root folder objects (each has a 'path' field).
+    method get_root_folders() {
+        my $resp = $self->_api_get('/api/v3/rootfolder');
+        die "Sonarr API error: $resp->{status} $resp->{reason}\n" unless $resp->{success};
+        return JSON::PP::decode_json($resp->{content});
+    }
+
+    # Audit all series against disk.  Fetches series + root folders from Sonarr,
+    # runs audit_series on each, and writes a JSON report (unless dry_run=>1).
+    # Returns: { total => N, ok => N, missing => N, fixable => N, ambiguous => N }
+    method audit(%args) {
+        my $report_file = $args{report_file} or die "report_file is required\n";
+        my $dry_run     = $args{dry_run} // 0;
+
+        my $series_list  = $self->get_series();
+        my $root_folders = $self->get_root_folders();
+        my @roots        = map { $_->{path} } @{$root_folders};
+
+        my @items;
+        for my $s (@{$series_list}) {
+            push @items, Balance::AuditSonarr::audit_series($s, \@roots);
+        }
+
+        Balance::AuditSonarr::write_audit_report($report_file, \@items) unless $dry_run;
+
+        my %counts;
+        $counts{$_->{status}}++ for @items;
+        return { total => scalar @items, %counts, items => \@items };
+    }
+
+    # Read a fixable audit report and update Sonarr paths + rescan each series.
+    # Pass dry_run=>1 to preview only.
+    # Returns: { fixable => N, repaired => N }
+    method repair(%args) {
+        my $report_file = $args{report_file} or die "report_file is required\n";
+        my $dry_run     = $args{dry_run} // 0;
+
+        my $all_items = Balance::AuditSonarr::read_audit_report($report_file);
+        my @fixable   = grep { ($_->{status} // '') eq 'fixable' } @{$all_items};
+
+        my $repaired = 0;
+        for my $item (@fixable) {
+            my $id  = $item->{id};
+            my $new = $item->{candidate_path};
+            if ($dry_run) {
+                print "DRY-RUN  update-path series=$id  to=$new\n";
+                next;
+            }
+            $self->update_series_path($id, $new);
+            $self->rescan_series($id);
+            $repaired++;
+        }
+
+        return { fixable => scalar @fixable, repaired => $repaired };
     }
 
     # Read a sonarr reconcile plan JSON, update series paths and rescan for each
@@ -199,7 +256,7 @@ class Balance::Sonarr :isa(Balance::WebClient) {  ## no critic (Modules::Require
 
         _cli_usage(0) if $help || !$command;
         _cli_usage(2, "Unknown command: $command")
-            unless grep { $_ eq $command } qw(series rescan refresh apply dry-run);
+            unless grep { $_ eq $command } qw(series rescan refresh apply dry-run audit repair audit-dry-run repair-dry-run);
 
         load_env_file($env_file);
         my $defs = service_defaults('sonarr');
@@ -249,6 +306,30 @@ class Balance::Sonarr :isa(Balance::WebClient) {  ## no critic (Modules::Require
             printf "  updated:   %d\n", $r->{updated};
             printf "  rescanned: %d\n", $r->{rescanned};
             printf "  skipped:   %d\n", $r->{skipped};
+            return 0;
+        }
+
+        if ($command eq 'audit' || $command eq 'audit-dry-run') {
+            $report_file ||= $defs->{audit_report_file} || '/artifacts/sonarr-audit-report.json';
+            $dry_run = 1 if $command eq 'audit-dry-run';
+            my $r = $sonarr->audit(report_file => $report_file, dry_run => $dry_run);
+            printf "%s\n", $dry_run ? 'Sonarr audit dry-run' : "Sonarr audit complete: $report_file";
+            printf "  total:     %d\n", $r->{total}     // 0;
+            printf "  ok:        %d\n", $r->{ok}        // 0;
+            printf "  missing:   %d\n", $r->{missing}   // 0;
+            printf "  fixable:   %d\n", $r->{fixable}   // 0;
+            printf "  ambiguous: %d\n", $r->{ambiguous} // 0;
+            return 0;
+        }
+
+        if ($command eq 'repair' || $command eq 'repair-dry-run') {
+            $report_file ||= $defs->{audit_report_file} || '/artifacts/sonarr-audit-report.json';
+            $dry_run = 1 if $command eq 'repair-dry-run';
+            die "Audit report not found: $report_file\nRun 'sonarr audit' first.\n" unless -f $report_file;
+            my $r = $sonarr->repair(report_file => $report_file, dry_run => $dry_run);
+            printf "%s\n", $dry_run ? 'Sonarr repair dry-run' : 'Sonarr repair complete';
+            printf "  fixable:   %d\n", $r->{fixable}  // 0;
+            printf "  repaired:  %d\n", $r->{repaired} // 0;
             return 0;
         }
 

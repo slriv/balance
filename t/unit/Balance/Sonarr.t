@@ -196,4 +196,65 @@ subtest 'apply_plan returns zero counts on empty plan' => sub {
     is($r->{planned}, 0, 'zero planned');
 };
 
+# --- get_root_folders ---
+
+subtest 'get_root_folders returns parsed list' => sub {
+    my $payload = [{ id => 1, path => '/tv', accessible => 1 }];
+    $mock_http->mock('get', sub { return { success => 1, content => JSON::PP::encode_json($payload) }; });
+    my $sonarr = Balance::Sonarr->new(base_url => 'http://sonarr:8989', api_key => 'testkey');
+    my $folders = $sonarr->get_root_folders();
+    is(scalar @$folders, 1, 'one root folder');
+    is($folders->[0]{path}, '/tv', 'path correct');
+    $mock_http->unmock('get');
+};
+
+# --- audit ---
+
+subtest 'audit: dry_run does not write report file' => sub {
+    my $series_payload  = [{ id => 1, title => 'Show A', path => '/tv/Show A', tvdbId => 1 }];
+    my $folders_payload = [{ id => 1, path => '/tv' }];
+
+    $mock_http->mock('get', sub {
+        my (undef, $url) = @_;
+        if ($url =~ m{/rootfolder}) {
+            return { success => 1, content => JSON::PP::encode_json($folders_payload) };
+        }
+        return { success => 1, content => JSON::PP::encode_json($series_payload) };
+    });
+
+    my $mock_audit = Test::MockModule->new('Balance::AuditSonarr');
+    $mock_audit->mock('audit_series', sub { { status => 'ok', id => 1, title => 'Show A', path => '/tv/Show A' } });
+
+    my $sonarr = Balance::Sonarr->new(base_url => 'http://sonarr:8989', api_key => 'testkey');
+    my $tmp_report = '/tmp/sonarr-t-audit-test.json';
+    unlink $tmp_report if -f $tmp_report;
+    my $r = $sonarr->audit(report_file => $tmp_report, dry_run => 1);
+    is($r->{total}, 1, 'one series audited');
+    ok(!-f $tmp_report, 'report not written in dry_run');
+
+    $mock_http->unmock('get');
+    $mock_audit->unmock('audit_series');
+};
+
+# --- repair ---
+
+subtest 'repair: dry_run prints without calling API' => sub {
+    my $mock_audit = Test::MockModule->new('Balance::AuditSonarr');
+    $mock_audit->mock('read_audit_report', sub {
+        return [
+            { status => 'fixable', id => 10, candidate_path => '/tv2/Show X' },
+            { status => 'ok',      id => 11 },
+        ];
+    });
+
+    my $sonarr = Balance::Sonarr->new(base_url => 'http://sonarr:8989', api_key => 'testkey');
+    # dry_run=1 → no API calls; just prints and returns counts
+    my $r = eval { $sonarr->repair(report_file => '/fake/audit.json', dry_run => 1) };
+    ok(!$@, "repair dry_run did not die: $@");
+    is($r->{fixable},  1, 'one fixable item');
+    is($r->{repaired}, 0, 'nothing repaired in dry_run');
+
+    $mock_audit->unmock('read_audit_report');
+};
+
 done_testing;
