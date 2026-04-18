@@ -5,6 +5,7 @@ use feature 'signatures';
 use utf8;
 use Exporter 'import';
 use JSON::PP ();
+use POSIX qw(strftime);
 use Balance::DiskProbe ();  # called as Balance::DiskProbe::* so mocks intercept
 
 our @EXPORT_OK = qw(audit_series write_audit_report read_audit_report);
@@ -84,8 +85,8 @@ sub audit_series($series, $roots) {
 # $items - arrayref of audit_series results
 sub write_audit_report($path, $items) {
     open my $fh, '>', $path or die "Cannot write audit report $path: $!\n";
-    print $fh JSON::PP->new->utf8->pretty->encode({
-        generated_at => scalar localtime,
+    print $fh JSON::PP->new->canonical->utf8->pretty->encode({
+        generated_at => strftime('%Y-%m-%d %H:%M:%S', localtime),
         items        => $items,
     });
     close $fh;
