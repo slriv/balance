@@ -10,9 +10,6 @@
 <center>**WORK IN PROGRESS** — This is an active vibe-coding effort refactoring basic CLI scripts into a Docker-based daemon with a web interface. It is incomplete and under active development. Expect rough edges, missing features, and breaking changes.</center>  
 </font>
 
-[!NOTE]
-> **Work in Progress** — This project is an active vibe-coding effort to refactor a set of basic CLI scripts into a Docker-based daemon with a web interface. It is incomplete and under active development. Expect rough edges, missing features, and breaking changes.
-
 <br />
 <div align="center">
   <h3 align="center">balance</h3>
