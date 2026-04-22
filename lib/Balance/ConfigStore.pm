@@ -17,11 +17,12 @@ class Balance::ConfigStore {  ## no critic (Modules::RequireEndWithOne)
         $_dbh = DBI->connect("dbi:SQLite:$db_path", '', '', {
             RaiseError => 1,
             AutoCommit => 1,
+            sqlite_unicode => 1,
         }) or die "Cannot open $db_path: $DBI::errstr\n";
         $_dbh->do(<<'SQL');
 CREATE TABLE IF NOT EXISTS config (
-    key TEXT PRIMARY KEY,
-    value TEXT,
+    key        TEXT PRIMARY KEY,
+    value      TEXT,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )
 SQL
