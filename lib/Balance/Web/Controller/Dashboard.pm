@@ -2,6 +2,8 @@ package Balance::Web::Controller::Dashboard;
 
 use v5.38;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
+use feature 'try';
+no warnings 'experimental::try';
 use Balance::Core qw(discover_default_mounts dir_size_kb fmt pct_fmt);
 use POSIX qw(strftime);
 
@@ -93,9 +95,9 @@ sub _start_balance_job($c, %opts) {
     my @cmd      = @{ $opts{cmd} // [] };
 
     my $store = $c->job_store;
-    eval { $store->insert_job($job_id, $job_type) };
-    if ($@) {
-        $c->render(text => "Cannot start: $@", status => 409);
+    try { $store->insert_job($job_id, $job_type) }
+    catch ($e) {
+        $c->render(text => "Cannot start: $e", status => 409);
         return;
     }
 

@@ -2,6 +2,8 @@ package Balance::Web::Controller::Sonarr;
 
 use v5.38;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
+use feature 'try';
+no warnings 'experimental::try';
 use Balance::Config qw(service_defaults load_env_file);
 use POSIX qw(strftime);
 
@@ -13,9 +15,9 @@ sub index ($c) {
 sub plan ($c) {
     my $job_id = $c->new_job_id('sonarr-plan');
     my $store = $c->job_store;
-    eval { $c->job_store->insert_job($job_id, 'sonarr_plan') };
-    if ($@) {
-        $c->render(text => "Cannot start: $@", status => 409);
+    try { $c->job_store->insert_job($job_id, 'sonarr_plan') }
+    catch ($e) {
+        $c->render(text => "Cannot start: $e", status => 409);
         return;
     }
     $c->job_store->update_job($job_id,
@@ -42,9 +44,9 @@ sub dry_run ($c) {
     my $defs = service_defaults('sonarr');
     my $job_id = $c->new_job_id('sonarr-dry-run');
     my $store = $c->job_store;
-    eval { $c->job_store->insert_job($job_id, 'sonarr_dry_run') };
-    if ($@) {
-        $c->render(text => "Cannot start: $@", status => 409);
+    try { $c->job_store->insert_job($job_id, 'sonarr_dry_run') }
+    catch ($e) {
+        $c->render(text => "Cannot start: $e", status => 409);
         return;
     }
     $c->job_store->update_job($job_id,
@@ -72,9 +74,9 @@ sub apply ($c) {
     my $defs = service_defaults('sonarr');
     my $job_id = $c->new_job_id('sonarr-apply');
     my $store = $c->job_store;
-    eval { $c->job_store->insert_job($job_id, 'sonarr_apply') };
-    if ($@) {
-        $c->render(text => "Cannot start: $@", status => 409);
+    try { $c->job_store->insert_job($job_id, 'sonarr_apply') }
+    catch ($e) {
+        $c->render(text => "Cannot start: $e", status => 409);
         return;
     }
     $c->job_store->update_job($job_id,
@@ -103,9 +105,9 @@ sub audit ($c) {
     my $audit_file = $defs->{audit_report_file};
     my $job_id = $c->new_job_id('sonarr-audit');
     my $store = $c->job_store;
-    eval { $c->job_store->insert_job($job_id, 'sonarr_audit') };
-    if ($@) {
-        $c->render(text => "Cannot start: $@", status => 409);
+    try { $c->job_store->insert_job($job_id, 'sonarr_audit') }
+    catch ($e) {
+        $c->render(text => "Cannot start: $e", status => 409);
         return;
     }
     $c->job_store->update_job($job_id,
@@ -134,9 +136,9 @@ sub repair ($c) {
     my $audit_file = $defs->{audit_report_file};
     my $job_id = $c->new_job_id('sonarr-repair');
     my $store = $c->job_store;
-    eval { $c->job_store->insert_job($job_id, 'sonarr_repair') };
-    if ($@) {
-        $c->render(text => "Cannot start: $@", status => 409);
+    try { $c->job_store->insert_job($job_id, 'sonarr_repair') }
+    catch ($e) {
+        $c->render(text => "Cannot start: $e", status => 409);
         return;
     }
     $c->job_store->update_job($job_id,

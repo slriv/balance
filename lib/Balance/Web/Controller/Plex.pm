@@ -2,6 +2,8 @@ package Balance::Web::Controller::Plex;
 
 use v5.38;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
+use feature 'try';
+no warnings 'experimental::try';
 use Balance::Config qw(service_defaults load_env_file);
 use POSIX qw(strftime);
 
@@ -13,9 +15,9 @@ sub index ($c) {
 sub plan ($c) {
     my $job_id = $c->new_job_id('plex-plan');
     my $store  = $c->job_store;
-    eval { $c->job_store->insert_job($job_id, 'plex_plan') };
-    if ($@) {
-        $c->render(text => "Cannot start: $@", status => 409);
+    try { $c->job_store->insert_job($job_id, 'plex_plan') }
+    catch ($e) {
+        $c->render(text => "Cannot start: $e", status => 409);
         return;
     }
     $c->job_store->update_job($job_id,
@@ -42,9 +44,9 @@ sub dry_run ($c) {
     my $defs = service_defaults('plex');
     my $job_id = $c->new_job_id('plex-dry-run');
     my $store  = $c->job_store;
-    eval { $c->job_store->insert_job($job_id, 'plex_dry_run') };
-    if ($@) {
-        $c->render(text => "Cannot start: $@", status => 409);
+    try { $c->job_store->insert_job($job_id, 'plex_dry_run') }
+    catch ($e) {
+        $c->render(text => "Cannot start: $e", status => 409);
         return;
     }
     $c->job_store->update_job($job_id,
@@ -72,9 +74,9 @@ sub apply ($c) {
     my $defs = service_defaults('plex');
     my $job_id = $c->new_job_id('plex-apply');
     my $store  = $c->job_store;
-    eval { $c->job_store->insert_job($job_id, 'plex_apply') };
-    if ($@) {
-        $c->render(text => "Cannot start: $@", status => 409);
+    try { $c->job_store->insert_job($job_id, 'plex_apply') }
+    catch ($e) {
+        $c->render(text => "Cannot start: $e", status => 409);
         return;
     }
     $c->job_store->update_job($job_id,
@@ -102,9 +104,9 @@ sub scan ($c) {
     my $lib_id  = $c->param('library_id') // '';
     my $job_id  = $c->new_job_id('plex-scan');
     my $store   = $c->job_store;
-    eval { $c->job_store->insert_job($job_id, 'plex_scan') };
-    if ($@) {
-        $c->render(text => "Cannot start: $@", status => 409);
+    try { $c->job_store->insert_job($job_id, 'plex_scan') }
+    catch ($e) {
+        $c->render(text => "Cannot start: $e", status => 409);
         return;
     }
     $c->job_store->update_job($job_id,
@@ -132,9 +134,9 @@ sub empty_trash ($c) {
     my $lib_id = $c->param('library_id') // '';
     my $job_id = $c->new_job_id('plex-trash');
     my $store  = $c->job_store;
-    eval { $c->job_store->insert_job($job_id, 'plex_empty_trash') };
-    if ($@) {
-        $c->render(text => "Cannot start: $@", status => 409);
+    try { $c->job_store->insert_job($job_id, 'plex_empty_trash') }
+    catch ($e) {
+        $c->render(text => "Cannot start: $e", status => 409);
         return;
     }
     $c->job_store->update_job($job_id,

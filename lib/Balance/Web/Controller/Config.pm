@@ -2,6 +2,8 @@ package Balance::Web::Controller::Config;
 
 use v5.38;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
+use feature 'try';
+no warnings 'experimental::try';
 use Balance::ConfigStore;
 
 sub index ($self) {
@@ -98,12 +100,10 @@ sub test_sonarr ($self) {
     my $ua = $self->ua;
     my $test_url = "$url/api/v3/system/status";
 
-    my $tx = eval { $ua->get($test_url => { 'X-Api-Key' => $api_key }) };
-    if (my $error = $@) {
-        return $self->render(json => {
-            success => \0,
-            error => "Connection failed: $error"
-        });
+    my $tx;
+    try { $tx = $ua->get($test_url => { 'X-Api-Key' => $api_key }) }
+    catch ($e) {
+        return $self->render(json => { success => \0, error => "Connection failed: $e" });
     }
 
     my $result = $tx->result;
@@ -142,12 +142,10 @@ sub test_plex ($self) {
 
     my $ua = $self->ua;
 
-    my $tx = eval { $ua->get("$url/identity" => { 'X-Plex-Token' => $token }) };
-    if (my $error = $@) {
-        return $self->render(json => {
-            success => \0,
-            error => "Connection failed: $error"
-        });
+    my $tx;
+    try { $tx = $ua->get("$url/identity" => { 'X-Plex-Token' => $token }) }
+    catch ($e) {
+        return $self->render(json => { success => \0, error => "Connection failed: $e" });
     }
 
     my $result = $tx->result;
