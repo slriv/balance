@@ -12,6 +12,7 @@
     <a href="/"       class="hover:text-white text-gray-300">Dashboard</a>
     <a href="/sonarr" class="hover:text-white text-gray-300">Sonarr</a>
     <a href="/plex"   class="hover:text-white text-gray-300">Plex</a>
+    <a href="/config" class="hover:text-white text-gray-300 ml-auto">⚙️ Config</a>
   </nav>
   <main class="p-6">
     <%= content %>

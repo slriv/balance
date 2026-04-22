@@ -6,7 +6,10 @@ use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use Getopt::Long;
 use Balance::Manifest qw(append_manifest_record);
-use Balance::Core qw(log_ts dir_size_kb fmt pct_fmt print_state discover_default_mounts);
+use Balance::Core qw(
+    log_ts dir_size_kb fmt pct_fmt print_state discover_default_mounts
+    format_mount_discovery_error
+);
 $| = 1;  # unbuffered stdout
 STDERR->autoflush(1);
 
@@ -14,7 +17,14 @@ BEGIN {
     printf STDERR "balance_tv starting: perl %s on %s\n", $], $^O;
 }
 
-$SIG{__DIE__}  = sub { Carp::confess("FATAL: @_") };
+$SIG{__DIE__}  = sub {
+    return if $^S;
+    my $message = join '', @_;
+    chomp $message;
+    $message =~ s/\s+at\s+\S+\s+line\s+\d+\.?$//;
+    print STDERR "FATAL: $message\n";
+    exit 1;
+};
 $SIG{__WARN__} = sub { warn "WARN: @_" };
 
 # -- Config: auto-discover mounts or override with --mount flags --
@@ -149,7 +159,7 @@ if ($log_file) {
 
 if (!@MOUNTS) {
     @MOUNTS = discover_default_mounts($mount_prefix);
-    die "No mounts discovered for prefix '$mount_prefix'. Use --mount=/path to define mounts explicitly.\n"
+    die format_mount_discovery_error($mount_prefix)
         unless @MOUNTS;
 }
 

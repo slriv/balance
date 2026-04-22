@@ -6,7 +6,10 @@ no warnings qw(experimental::try);  ## no critic (TestingAndDebugging::ProhibitN
 use utf8;
 use Exporter 'import';
 
-our @EXPORT_OK = qw(log_ts dir_size_kb fmt pct_fmt print_state discover_default_mounts);
+our @EXPORT_OK = qw(
+    log_ts dir_size_kb fmt pct_fmt print_state discover_default_mounts
+    format_mount_discovery_error
+);
 
 sub log_ts() {
     my @t = localtime();
@@ -131,6 +134,24 @@ sub discover_default_mounts($prefix = undef) {
     } @found;
 
     return @found;
+}
+
+sub format_mount_discovery_error($prefix) {
+    $prefix = '/tv' unless defined $prefix && length $prefix;
+
+    my @examples = ($prefix, "${prefix}2", "${prefix}3");
+
+    return join "\n",
+        "No mounts discovered for prefix '$prefix'.",
+        '',
+        'Expected one or more mounted directories such as: ' . join(', ', @examples),
+        'This usually means the container was started without the TV volumes mounted.',
+        '',
+        'Next steps:',
+        '  - If you are running in Docker, bind-mount your TV paths into the container.',
+        '  - If you want to bypass auto-discovery, pass --mount=/path (repeatable).',
+        '  - If you are using the web UI, check the Config page and the container volume mappings.',
+        '';
 }
 
 1;

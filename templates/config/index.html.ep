@@ -1,0 +1,245 @@
+% layout 'main';
+% title 'Configuration';
+
+<div class="max-w-4xl mx-auto">
+  <h1 class="text-3xl font-bold mb-8">Configuration</h1>
+
+  <!-- Status Messages -->
+  <div id="status-message" style="display: none;" class="mb-4 p-4 rounded">
+    <span id="status-text"></span>
+  </div>
+
+  <form id="config-form" class="space-y-8">
+
+    <!-- Mount Paths Section -->
+    <section class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+      <h2 class="text-xl font-semibold mb-4 text-blue-400">Mount Paths</h2>
+      <p class="text-xs text-gray-400 mb-4">
+        Paths to your TV show directories. These are mounted read-only for planning, read-write for apply.
+      </p>
+      <div class="grid grid-cols-2 gap-4">
+        <% for my $i (1..4) { %>
+          <div>
+            <label class="text-xs text-gray-400 block mb-1">TV_PATH_<%= $i %></label>
+            <input 
+              type="text" 
+              name="tv_path_<%= $i %>" 
+              value="<%= $config->{"tv_path_$i"} || '' %>"
+              placeholder="/srv/tv<%= $i == 1 ? '' : $i %>"
+              class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+            >
+          </div>
+        <% } %>
+      </div>
+    </section>
+
+    <!-- Sonarr Section -->
+    <section class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+      <h2 class="text-xl font-semibold mb-4 text-purple-400">Sonarr</h2>
+      <p class="text-xs text-gray-400 mb-4">
+        Optional: Configure Sonarr for path reconciliation after balance apply.
+      </p>
+      <div class="space-y-4">
+        <div>
+          <label class="text-xs text-gray-400 block mb-1">Base URL</label>
+          <input 
+            type="url" 
+            name="sonarr_url" 
+            value="<%= $config->{sonarr_url} || '' %>"
+            placeholder="http://sonarr:8989"
+            class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+          >
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 block mb-1">API Key</label>
+          <input
+            type="password"
+            name="sonarr_api_key"
+            placeholder="<%= $config->{sonarr_api_key} ? 'Key stored — leave blank to keep' : 'Enter API key' %>"
+            class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+          >
+          % if ($config->{sonarr_api_key}) {
+            <p class="text-xs text-gray-400 mt-1">API key is stored. Leave blank to keep it unchanged.</p>
+          % }
+        </div>
+        <div>
+          <button 
+            type="button" 
+            onclick="testSonarr()"
+            class="bg-purple-700 hover:bg-purple-600 rounded px-4 py-2 text-sm font-medium"
+          >
+            Test Connection
+          </button>
+          <div id="sonarr-result" style="display: none;" class="mt-2 p-2 rounded text-sm"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Plex Section -->
+    <section class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+      <h2 class="text-xl font-semibold mb-4 text-green-400">Plex</h2>
+      <p class="text-xs text-gray-400 mb-4">
+        Optional: Configure Plex for path reconciliation after balance apply.
+      </p>
+      <div class="space-y-4">
+        <div>
+          <label class="text-xs text-gray-400 block mb-1">Base URL</label>
+          <input 
+            type="url" 
+            name="plex_url" 
+            value="<%= $config->{plex_url} || '' %>"
+            placeholder="http://plex:32400"
+            class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+          >
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="text-xs text-gray-400 block mb-1">Token</label>
+            <input
+              type="password"
+              name="plex_token"
+              placeholder="<%= $config->{plex_token} ? 'Token stored — leave blank to keep' : 'Your Plex token' %>"
+              class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+            >
+            % if ($config->{plex_token}) {
+              <p class="text-xs text-gray-400 mt-1">Plex token is stored. Leave blank to keep it unchanged.</p>
+            % }
+          </div>
+          <div>
+            <label class="text-xs text-gray-400 block mb-1">Library IDs</label>
+            <input 
+              type="text" 
+              name="plex_library_ids" 
+              value="<%= $config->{plex_library_ids} || '1' %>"
+              placeholder="1,2,3"
+              class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+            >
+          </div>
+        </div>
+        <div>
+          <button 
+            type="button" 
+            onclick="testPlex()"
+            class="bg-green-700 hover:bg-green-600 rounded px-4 py-2 text-sm font-medium"
+          >
+            Test Connection
+          </button>
+          <div id="plex-result" style="display: none;" class="mt-2 p-2 rounded text-sm"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Action Buttons -->
+    <div class="flex gap-4">
+      <button 
+        type="submit"
+        class="bg-blue-700 hover:bg-blue-600 rounded px-6 py-2 font-medium"
+      >
+        Save Configuration
+      </button>
+      <a href="/" class="bg-gray-700 hover:bg-gray-600 rounded px-6 py-2 font-medium inline-block">
+        Back to Dashboard
+      </a>
+    </div>
+
+  </form>
+
+</div>
+
+<script>
+document.getElementById('config-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  const formData = new FormData(e.target);
+  const data = Object.fromEntries(formData);
+  
+  try {
+    const response = await fetch('/config/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      showStatus('✓ Configuration saved successfully', 'success');
+    } else {
+      showStatus('✗ Error: ' + (result.error || 'Unknown error'), 'error');
+    }
+  } catch (e) {
+    showStatus('✗ Error: ' + e.message, 'error');
+  }
+});
+
+function showStatus(message, type) {
+  const el = document.getElementById('status-message');
+  const text = document.getElementById('status-text');
+  text.textContent = message;
+  el.className = 'mb-4 p-4 rounded ' + 
+    (type === 'success' ? 'bg-green-900 text-green-200' : 'bg-red-900 text-red-200');
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+async function testSonarr() {
+  const url = document.querySelector('input[name="sonarr_url"]').value;
+  const api_key = document.querySelector('input[name="sonarr_api_key"]').value;
+  const resultEl = document.getElementById('sonarr-result');
+  
+  if (!url || !api_key) {
+    resultEl.textContent = '✗ URL and API key required';
+    resultEl.className = 'p-2 rounded text-sm bg-red-900 text-red-200';
+    resultEl.style.display = 'block';
+    return;
+  }
+  
+  try {
+    const response = await fetch('/config/test-sonarr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, api_key })
+    });
+    
+    const result = await response.json();
+    resultEl.textContent = (result.success ? '✓ ' : '✗ ') + (result.message || result.error);
+    resultEl.className = 'p-2 rounded text-sm ' + 
+      (result.success ? 'bg-green-900 text-green-200' : 'bg-red-900 text-red-200');
+    resultEl.style.display = 'block';
+  } catch (e) {
+    resultEl.textContent = '✗ Connection failed: ' + e.message;
+    resultEl.className = 'p-2 rounded text-sm bg-red-900 text-red-200';
+    resultEl.style.display = 'block';
+  }
+}
+
+async function testPlex() {
+  const url = document.querySelector('input[name="plex_url"]').value;
+  const token = document.querySelector('input[name="plex_token"]').value;
+  const resultEl = document.getElementById('plex-result');
+  
+  if (!url || !token) {
+    resultEl.textContent = '✗ URL and token required';
+    resultEl.className = 'p-2 rounded text-sm bg-red-900 text-red-200';
+    resultEl.style.display = 'block';
+    return;
+  }
+  
+  try {
+    const response = await fetch('/config/test-plex', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, token })
+    });
+    
+    const result = await response.json();
+    resultEl.textContent = (result.success ? '✓ ' : '✗ ') + (result.message || result.error);
+    resultEl.className = 'p-2 rounded text-sm ' + 
+      (result.success ? 'bg-green-900 text-green-200' : 'bg-red-900 text-red-200');
+    resultEl.style.display = 'block';
+  } catch (e) {
+    resultEl.textContent = '✗ Connection failed: ' + e.message;
+    resultEl.className = 'p-2 rounded text-sm bg-red-900 text-red-200';
+    resultEl.style.display = 'block';
+  }
+}
+</script>

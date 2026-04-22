@@ -2,7 +2,7 @@ use v5.38;
 use Test::More;
 use File::Temp qw(tempdir);
 
-use Balance::Core qw(log_ts dir_size_kb fmt pct_fmt print_state);
+use Balance::Core qw(log_ts dir_size_kb fmt pct_fmt print_state format_mount_discovery_error);
 
 # --- log_ts ---
 
@@ -77,6 +77,16 @@ subtest 'print_state produces output with correct headers' => sub {
     like($buf, qr/=== TEST ===/,       'label in output');
     like($buf, qr/MOUNT/,              'MOUNT header');
     like($buf, qr/\/vol1/,             'mount in output');
+};
+
+subtest 'format_mount_discovery_error gives actionable guidance' => sub {
+    my $message = format_mount_discovery_error('/tv');
+
+    like($message, qr/No mounts discovered for prefix '\/tv'\./, 'includes missing prefix');
+    like($message, qr/\/tv, \/tv2, \/tv3/, 'includes expected mount examples');
+    like($message, qr/bind-mount your TV paths into the container/, 'mentions Docker mount guidance');
+    like($message, qr/--mount=\/path/, 'mentions explicit mount override');
+    like($message, qr/Config page and the container volume mappings/, 'mentions web UI guidance');
 };
 
 done_testing;

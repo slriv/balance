@@ -19,8 +19,47 @@ subtest 'GET /plex returns 200 with action buttons' => sub {
     my $t = Test::Mojo->new('Balance::Web::App');
     $t->get_ok('/plex')
       ->status_is(200)
+      ->content_like(qr/Plan/i)
+      ->content_like(qr/Dry-Run/i)
       ->content_like(qr/Scan/i)
-      ->content_like(qr/Empty Trash/i);
+      ->content_like(qr/Empty Trash/i)
+      ->content_like(qr/Apply/i);
+};
+
+# --- POST /plex/plan ---
+
+subtest 'POST /plex/plan creates a job and redirects' => sub {
+    my $t = Test::Mojo->new('Balance::Web::App');
+    $t->post_ok('/plex/plan')
+      ->status_is(302)
+      ->header_like(Location => qr{/jobs/plex-plan-});
+    my $jobs  = $t->app->job_store->recent_jobs(limit => 5);
+    my ($job) = grep { $_->{type} eq 'plex_plan' } @{$jobs};
+    ok(defined $job, 'plex_plan job recorded in store');
+};
+
+# --- POST /plex/dry-run ---
+
+subtest 'POST /plex/dry-run creates a job and redirects' => sub {
+    my $t = Test::Mojo->new('Balance::Web::App');
+    $t->post_ok('/plex/dry-run')
+      ->status_is(302)
+      ->header_like(Location => qr{/jobs/plex-dry-run-});
+    my $jobs  = $t->app->job_store->recent_jobs(limit => 5);
+    my ($job) = grep { $_->{type} eq 'plex_dry_run' } @{$jobs};
+    ok(defined $job, 'plex_dry_run job recorded in store');
+};
+
+# --- POST /plex/apply ---
+
+subtest 'POST /plex/apply creates a job and redirects' => sub {
+    my $t = Test::Mojo->new('Balance::Web::App');
+    $t->post_ok('/plex/apply')
+      ->status_is(302)
+      ->header_like(Location => qr{/jobs/plex-apply-});
+    my $jobs  = $t->app->job_store->recent_jobs(limit => 5);
+    my ($job) = grep { $_->{type} eq 'plex_apply' } @{$jobs};
+    ok(defined $job, 'plex_apply job recorded in store');
 };
 
 # --- POST /plex/scan ---
