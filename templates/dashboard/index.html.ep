@@ -3,6 +3,59 @@
 <h1 class="text-2xl font-bold mb-6">Dashboard</h1>
 
 <section class="mb-8">
+  <h2 class="text-lg font-semibold mb-3 text-gray-300">Balance Operations</h2>
+  <div class="flex flex-wrap gap-4">
+    <form method="post" action="/plan" class="bg-gray-800 rounded p-4 w-72">
+      <h3 class="font-semibold mb-2">Plan Moves</h3>
+      <p class="text-xs text-gray-400 mb-3">
+        Generate a move plan and write plan/log artifacts. No files are moved.
+      </p>
+      <label class="text-xs text-gray-400 block mb-1">Threshold (%)</label>
+      <input name="threshold" type="text" value="20"
+             class="w-full bg-gray-700 rounded px-2 py-1 text-sm mb-3">
+      <label class="text-xs text-gray-400 block mb-1">Max moves (optional)</label>
+      <input name="max_moves" type="text" placeholder="e.g. 10"
+             class="w-full bg-gray-700 rounded px-2 py-1 text-sm mb-3">
+      <button class="w-full bg-blue-700 hover:bg-blue-600 rounded px-3 py-2 text-sm font-medium">
+        Run Plan
+      </button>
+    </form>
+
+    <form method="post" action="/dry-run" class="bg-gray-800 rounded p-4 w-72">
+      <h3 class="font-semibold mb-2">Dry-Run Apply</h3>
+      <p class="text-xs text-gray-400 mb-3">
+        Execute apply pipeline with rsync preview mode (`-n`) and no data movement.
+      </p>
+      <label class="text-xs text-gray-400 block mb-1">Threshold (%)</label>
+      <input name="threshold" type="text" value="20"
+             class="w-full bg-gray-700 rounded px-2 py-1 text-sm mb-3">
+      <label class="text-xs text-gray-400 block mb-1">Max moves (optional)</label>
+      <input name="max_moves" type="text" placeholder="e.g. 10"
+             class="w-full bg-gray-700 rounded px-2 py-1 text-sm mb-3">
+      <button class="w-full bg-yellow-700 hover:bg-yellow-600 rounded px-3 py-2 text-sm font-medium">
+        Run Dry-Run
+      </button>
+    </form>
+
+    <form method="post" action="/apply" class="bg-gray-800 rounded p-4 w-72">
+      <h3 class="font-semibold mb-2">Apply Moves</h3>
+      <p class="text-xs text-gray-400 mb-3">
+        Execute rsync moves and append successful operations to the apply manifest.
+      </p>
+      <label class="text-xs text-gray-400 block mb-1">Threshold (%)</label>
+      <input name="threshold" type="text" value="20"
+             class="w-full bg-gray-700 rounded px-2 py-1 text-sm mb-3">
+      <label class="text-xs text-gray-400 block mb-1">Max moves (optional)</label>
+      <input name="max_moves" type="text" placeholder="e.g. 10"
+             class="w-full bg-gray-700 rounded px-2 py-1 text-sm mb-3">
+      <button class="w-full bg-green-700 hover:bg-green-600 rounded px-3 py-2 text-sm font-medium">
+        Run Apply
+      </button>
+    </form>
+  </div>
+</section>
+
+<section class="mb-8">
   <h2 class="text-lg font-semibold mb-3 text-gray-300">Volume State</h2>
   % if (@$mounts) {
   <table class="w-full text-sm border-collapse">

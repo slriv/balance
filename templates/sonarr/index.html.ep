@@ -4,6 +4,26 @@
 
 <div class="flex flex-wrap gap-4">
 
+  <form method="post" action="/sonarr/plan" class="bg-gray-800 rounded p-4 w-64">
+    <h2 class="font-semibold mb-2">Build Reconcile Plan</h2>
+    <p class="text-xs text-gray-400 mb-4">
+      Reads the move manifest and writes the Sonarr reconcile plan JSON.
+    </p>
+    <button class="w-full bg-indigo-700 hover:bg-indigo-600 rounded px-3 py-2 text-sm font-medium">
+      Run Plan
+    </button>
+  </form>
+
+  <form method="post" action="/sonarr/dry-run" class="bg-gray-800 rounded p-4 w-64">
+    <h2 class="font-semibold mb-2">Dry-Run Apply</h2>
+    <p class="text-xs text-gray-400 mb-4">
+      Preview Sonarr reconcile actions without changing any series paths.
+    </p>
+    <button class="w-full bg-purple-700 hover:bg-purple-600 rounded px-3 py-2 text-sm font-medium">
+      Run Dry-Run
+    </button>
+  </form>
+
   <form method="post" action="/sonarr/apply" class="bg-gray-800 rounded p-4 w-64">
     <h2 class="font-semibold mb-2">Apply Reconcile Plan</h2>
     <p class="text-xs text-gray-400 mb-4">

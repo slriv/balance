@@ -19,9 +19,35 @@ subtest 'GET /sonarr returns 200 with action buttons' => sub {
     my $t = Test::Mojo->new('Balance::Web::App');
     $t->get_ok('/sonarr')
       ->status_is(200)
+      ->content_like(qr/Plan/i)
+      ->content_like(qr/Dry-Run/i)
       ->content_like(qr/Audit/i)
       ->content_like(qr/Repair/i)
       ->content_like(qr/Apply/i);
+};
+
+# --- POST /sonarr/plan ---
+
+subtest 'POST /sonarr/plan creates a job and redirects' => sub {
+    my $t = Test::Mojo->new('Balance::Web::App');
+    $t->post_ok('/sonarr/plan')
+      ->status_is(302)
+      ->header_like(Location => qr{/jobs/sonarr-plan-});
+    my $jobs  = $t->app->job_store->recent_jobs(limit => 5);
+    my ($job) = grep { $_->{type} eq 'sonarr_plan' } @{$jobs};
+    ok(defined $job, 'sonarr_plan job recorded in store');
+};
+
+# --- POST /sonarr/dry-run ---
+
+subtest 'POST /sonarr/dry-run creates a job and redirects' => sub {
+    my $t = Test::Mojo->new('Balance::Web::App');
+    $t->post_ok('/sonarr/dry-run')
+      ->status_is(302)
+      ->header_like(Location => qr{/jobs/sonarr-dry-run-});
+    my $jobs  = $t->app->job_store->recent_jobs(limit => 5);
+    my ($job) = grep { $_->{type} eq 'sonarr_dry_run' } @{$jobs};
+    ok(defined $job, 'sonarr_dry_run job recorded in store');
 };
 
 # --- POST /sonarr/audit ---

@@ -3,14 +3,36 @@ SHELL := /bin/bash
 
 define HELP_TEXT
 Targets:
-  build-test       - Build local test image (balance-test:local) via Dockerfile.test
-  test             - Run unit tests in container (prove -Ilib -r t/unit/)
-  test-all         - Run all tests in container including integration
-	lint             - Syntax check Perl in container + perlcritic --severity 4
-  build            - Build production image locally
-  rebuild          - Build production image locally (--no-cache)
-  package          - Build image + save distributable package to dist/
-  setup-git-hooks  - Enable repo pre-push hook (blocks pushes to main)
+	help             - Show this help text
+
+	build-test       - Build local test image (balance-test:local) via Dockerfile.test
+	test             - Run unit tests in container (prove -Ilib -r t/unit/)
+	test-all         - Run all tests in container (prove -Ilib -r t/)
+	lint             - Syntax-check Perl + run perlcritic --severity 4
+
+	build            - Build production image locally
+	rebuild          - Build production image locally (--no-cache)
+	package          - Build image + save distributable package to dist/
+	config           - Validate docker-compose.yml syntax
+
+	sonarr-plan      - Build Sonarr reconcile plan from manifest
+	sonarr-dry-run   - Preview Sonarr apply actions
+	sonarr-apply     - Apply Sonarr reconcile plan
+	sonarr-config    - Show Sonarr resolved config (redacted)
+	sonarr-series    - List Sonarr series
+	sonarr-rescan    - Trigger Sonarr rescan (requires SERIES_ID)
+
+	plex-plan        - Build Plex reconcile plan from manifest
+	plex-dry-run     - Preview Plex apply actions
+	plex-apply       - Apply Plex reconcile plan
+	plex-config      - Show Plex resolved config (redacted)
+	plex-libraries   - List Plex libraries
+	plex-scan        - Trigger Plex full scan (requires LIBRARY_ID)
+	plex-scan-path   - Trigger Plex partial scan (requires LIBRARY_ID, SCAN_PATH)
+	plex-empty-trash - Empty Plex trash (requires LIBRARY_ID)
+
+	get-plex-token   - Run Plex PIN auth helper
+	setup-git-hooks  - Enable repo pre-push hook (blocks pushes to main)
 endef
 export HELP_TEXT
 
@@ -22,6 +44,7 @@ LOCAL_ARTIFACTS ?= artifacts
 ENV_FILE        ?= .env
 DIST_DIR        ?= dist
 IMAGE_TAR       ?= $(DIST_DIR)/balance-tv.tar
+RELEASE_TAR     ?= $(DIST_DIR)/balance-tv-release.tar.gz
 
 # Base docker run for local dev targets: reads .env, mounts artifacts + config.
 # No media volumes — suitable for plan/dry-run/config inspection locally.
@@ -34,7 +57,11 @@ _LOCAL_RUN = $(LOCAL_DOCKER) run --rm \
 SONARR_RUN ?= $(_LOCAL_RUN) sonarr_reconcile
 PLEX_RUN   ?= $(_LOCAL_RUN) plex_reconcile
 
-.PHONY: help build-test test test-all lint setup-git-hooks build rebuild package
+.PHONY: \
+	help build-test test test-all lint setup-git-hooks build rebuild package config \
+	sonarr-plan sonarr-dry-run sonarr-apply sonarr-config sonarr-series sonarr-rescan \
+	plex-plan plex-dry-run plex-apply plex-config plex-libraries plex-scan plex-scan-path plex-empty-trash \
+	get-plex-token
 
 help:
 	@echo "$$HELP_TEXT"
@@ -44,6 +71,7 @@ build-test:
 
 test: build-test
 	@$(LOCAL_DOCKER) run --rm \
+		-v $(CURDIR)/bin:/app/bin \
 		-v $(CURDIR)/lib:/app/lib \
 		-v $(CURDIR)/t:/app/t \
 		-v $(CURDIR)/templates:/app/templates \
@@ -53,6 +81,7 @@ test: build-test
 
 test-all: build-test
 	@$(LOCAL_DOCKER) run --rm \
+		-v $(CURDIR)/bin:/app/bin \
 		-v $(CURDIR)/lib:/app/lib \
 		-v $(CURDIR)/t:/app/t \
 		-v $(CURDIR)/templates:/app/templates \
@@ -94,19 +123,27 @@ package: build
 	@echo '==> Saving Docker image to $(IMAGE_TAR)'
 	@$(LOCAL_DOCKER) save -o '$(IMAGE_TAR)' $(IMAGE)
 	@echo '==> Building release archive'
-	@tar -czf '$(DIST_DIR)/balance-tv-release.tar.gz' \
+	@tar -czf '$(RELEASE_TAR)' \
 		docker-compose.yml \
 		.env.example \
 		config/ \
 		scripts/install.sh
 	@echo '==> Package ready in $(DIST_DIR)/'
 	@echo '    Image:   $(IMAGE_TAR)'
-	@echo '    Release: $(DIST_DIR)/balance-tv-release.tar.gz'
+	@echo '    Release: $(RELEASE_TAR)'
 
 # ----- Local: compose config validation -----
 
 config:
-	@python3 -c "import yaml,sys; yaml.safe_load(open(sys.argv[1])); print('docker-compose.yml OK')" docker-compose.yml
+	@if $(LOCAL_DOCKER) compose version >/dev/null 2>&1; then \
+		$(LOCAL_DOCKER) compose -f docker-compose.yml config -q; \
+	elif command -v docker-compose >/dev/null 2>&1; then \
+		docker-compose -f docker-compose.yml config -q; \
+	else \
+		echo "Neither 'docker compose' nor 'docker-compose' is available"; \
+		exit 1; \
+	fi
+	@echo "docker-compose.yml OK"
 
 # ----- Local: Sonarr (container, no NAS needed) -----
 

@@ -47,8 +47,7 @@ class Balance::JobRunner {  ## no critic (Modules::RequireEndWithOne)
             open(STDOUT, '>&', $writer) or POSIX::_exit(1);
             open(STDERR, '>&', $writer) or POSIX::_exit(1);
             close $writer;
-            exec { $cmd[0] } @cmd;
-            POSIX::_exit(127);
+            exec { $cmd[0] } @cmd or POSIX::_exit(127);
         }
 
         # Parent: read from the read end of the pipe.
