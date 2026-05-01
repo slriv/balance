@@ -495,3 +495,27 @@ sub stamp_output_path {
     }
     return "$path-$stamp";
 }
+
+__END__
+
+=head1 NAME
+
+balance_tv.pl - Plan and apply TV show rebalancing across storage mounts
+
+=head1 SYNOPSIS
+
+  balance_tv.pl [--dry-run] [--apply] [--mount=/tv] [--mount=/tv2]
+  balance_tv.pl --help
+
+=head1 DESCRIPTION
+
+Computes an optimal plan for moving TV show directories across multiple
+storage mounts to balance disk usage, enforcing minimum free-space
+requirements. Moves are recorded to the Balance apply manifest for
+subsequent Sonarr and Plex reconciliation.
+
+=head1 LICENSE
+
+Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+
+=cut
