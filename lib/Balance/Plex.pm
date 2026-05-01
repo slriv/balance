@@ -1,6 +1,7 @@
 package Balance::Plex;
 use v5.42;
 use experimental 'class';
+use feature 'signatures';
 use source::encoding 'utf8';
 
 our $VERSION = '0.01';
