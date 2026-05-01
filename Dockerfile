@@ -4,14 +4,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && rm -rf /var/lib/apt/lists/*
 RUN curl -fsSL https://cpanmin.us -o /usr/local/bin/cpanm \
  && chmod +x /usr/local/bin/cpanm \
- && cpanm --notest Mojolicious DBI DBD::SQLite \
+ && cpanm --notest Mojolicious DBI DBD::SQLite File::ShareDir WebService::Plex LWP::UserAgent \
  && rm -rf ~/.cpanm
 COPY lib /usr/local/lib
 COPY bin/balance_tv.pl /usr/local/bin/balance_tv
 COPY bin/sonarr_reconcile.pl /usr/local/bin/sonarr_reconcile
 COPY bin/plex_reconcile.pl /usr/local/bin/plex_reconcile
 COPY bin/balance_web.pl /usr/local/bin/balance_web
-COPY templates /usr/local/templates
-COPY public /usr/local/public
+COPY share /app/share
 RUN chmod +x /usr/local/bin/balance_tv /usr/local/bin/sonarr_reconcile /usr/local/bin/plex_reconcile /usr/local/bin/balance_web
+WORKDIR /app
 ENTRYPOINT ["balance_tv"]
