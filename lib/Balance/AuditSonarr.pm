@@ -1,12 +1,14 @@
 package Balance::AuditSonarr;
 
-use v5.38;
+use v5.42;
 use feature 'signatures';
-use utf8;
+use source::encoding 'utf8';
 use Exporter 'import';
 use JSON::PP ();
 use POSIX qw(strftime);
 use Balance::DiskProbe ();  # called as Balance::DiskProbe::* so mocks intercept
+
+our $VERSION = '0.01';
 
 our @EXPORT_OK = qw(audit_series write_audit_report read_audit_report);
 
@@ -102,3 +104,22 @@ sub read_audit_report($path) {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Balance::AuditSonarr - Sonarr library path auditing for Balance
+
+=head1 DESCRIPTION
+
+Compares Sonarr series paths against the filesystem and classifies each as
+C<ok>, C<missing>, C<fixable> (unambiguous fuzzy match), or C<ambiguous>
+(multiple candidates). Results are written to a JSON audit report for
+inspection or automated repair.
+
+=head1 LICENSE
+
+Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+
+=cut

@@ -1,11 +1,11 @@
 package Balance::Manifest;
 
-use v5.38;
-use feature qw(signatures try);
-no warnings qw(experimental::try);  ## no critic (TestingAndDebugging::ProhibitNoWarnings)
-use utf8;
+use v5.42;
+use source::encoding 'utf8';
 use Exporter 'import';
 use JSON::PP ();
+
+our $VERSION = '0.01';
 
 our @EXPORT_OK = qw(append_manifest_record read_manifest successful_apply_records);
 
@@ -31,3 +31,20 @@ sub successful_apply_records($records) {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Balance::Manifest - Read and write Balance apply manifest (JSONL) files
+
+=head1 DESCRIPTION
+
+Appends move records to a JSONL manifest file during apply runs and reads
+them back to build reconcile plans for Sonarr and Plex.
+
+=head1 LICENSE
+
+Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+
+=cut

@@ -1,10 +1,10 @@
 package Balance::Core;
 
-use v5.38;
-use feature qw(signatures try);
-no warnings qw(experimental::try);  ## no critic (TestingAndDebugging::ProhibitNoWarnings)
-use utf8;
+use v5.42;
+use source::encoding 'utf8';
 use Exporter 'import';
+
+our $VERSION = '0.01';
 
 our @EXPORT_OK = qw(
     log_ts dir_size_kb fmt pct_fmt print_state discover_default_mounts
@@ -155,3 +155,22 @@ sub format_mount_discovery_error($prefix) {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Balance::Core - Shared utilities for Balance
+
+=head1 DESCRIPTION
+
+Exports formatting helpers (C<fmt>, C<pct_fmt>), disk measurement
+(C<dir_size_kb>), state display (C<print_state>), and mount discovery
+(C<discover_default_mounts>, C<format_mount_discovery_error>) used across
+the Balance CLI and web UI.
+
+=head1 LICENSE
+
+Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+
+=cut

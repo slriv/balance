@@ -1,6 +1,11 @@
-FROM alpine:3.20
-RUN apk add --no-cache perl perl-dev coreutils bash rsync sqlite-dev curl wget make gcc musl-dev
-RUN curl -L https://cpanmin.us | perl - --notest Mojolicious DBI DBD::SQLite
+FROM perl:5.42-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libsqlite3-dev rsync curl wget make gcc \
+ && rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL https://cpanmin.us -o /usr/local/bin/cpanm \
+ && chmod +x /usr/local/bin/cpanm \
+ && cpanm --notest Mojolicious DBI DBD::SQLite \
+ && rm -rf ~/.cpanm
 COPY lib /usr/local/lib
 COPY bin/balance_tv.pl /usr/local/bin/balance_tv
 COPY bin/sonarr_reconcile.pl /usr/local/bin/sonarr_reconcile

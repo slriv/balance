@@ -5,12 +5,16 @@ define HELP_TEXT
 Targets:
 	help             - Show this help text
 
+	cpan-build       - Generate MANIFEST and dist tarball (App-Balance-*.tar.gz)
+	cpan-test        - Smoke-test the generated tarball with cpanm
+	cpan-upload      - Upload tarball to PAUSE
+
 	build-test       - Build local test image (balance-test:local) via Dockerfile.test
 	test             - Run unit tests in container (prove -Ilib -r t/unit/)
 	test-all         - Run all tests in container (prove -Ilib -r t/)
 	lint             - Syntax-check Perl + run perlcritic --severity 4
 
-	build            - Build production image locally
+	build            - Build production image locally (Docker secondary)
 	rebuild          - Build production image locally (--no-cache)
 	package          - Build image + save distributable package to dist/
 	config           - Validate docker-compose.yml syntax
@@ -58,7 +62,8 @@ SONARR_RUN ?= $(_LOCAL_RUN) sonarr_reconcile
 PLEX_RUN   ?= $(_LOCAL_RUN) plex_reconcile
 
 .PHONY: \
-	help build-test test test-all lint setup-git-hooks build rebuild package config \
+	help cpan-build cpan-test cpan-upload \
+	build-test test test-all lint setup-git-hooks build rebuild package config \
 	sonarr-plan sonarr-dry-run sonarr-apply sonarr-config sonarr-series sonarr-rescan \
 	plex-plan plex-dry-run plex-apply plex-config plex-libraries plex-scan plex-scan-path plex-empty-trash \
 	get-plex-token
@@ -66,35 +71,47 @@ PLEX_RUN   ?= $(_LOCAL_RUN) plex_reconcile
 help:
 	@echo "$$HELP_TEXT"
 
+# ----- CPAN distribution -----
+
+cpan-build:
+	perl Makefile.PL && perl -MExtUtils::Manifest -e 'ExtUtils::Manifest::mkmanifest()' && perl Makefile.PL && make dist
+
+cpan-test: cpan-build
+	cpanm --test-only App-Balance-*.tar.gz
+
+cpan-upload:
+	cpan-upload App-Balance-*.tar.gz
+
 build-test:
 	@$(LOCAL_DOCKER) build -f Dockerfile.test -t $(TEST_IMAGE) .
+
+PLEXAPI_LIB ?= $(dir $(CURDIR))plexapi/lib
 
 test: build-test
 	@$(LOCAL_DOCKER) run --rm \
 		-v $(CURDIR)/bin:/app/bin \
 		-v $(CURDIR)/lib:/app/lib \
 		-v $(CURDIR)/t:/app/t \
-		-v $(CURDIR)/templates:/app/templates \
-		-v $(CURDIR)/public:/app/public \
+		-v $(CURDIR)/share:/app/share \
+		$(if $(wildcard $(PLEXAPI_LIB)),-v $(PLEXAPI_LIB):/app/plexapi-lib,) \
 		-w /app \
-		$(TEST_IMAGE) prove -Ilib -r t/unit/
+		$(TEST_IMAGE) prove $(if $(wildcard $(PLEXAPI_LIB)),-I/app/plexapi-lib,) -Ilib -r t/unit/
 
 test-all: build-test
 	@$(LOCAL_DOCKER) run --rm \
 		-v $(CURDIR)/bin:/app/bin \
 		-v $(CURDIR)/lib:/app/lib \
 		-v $(CURDIR)/t:/app/t \
-		-v $(CURDIR)/templates:/app/templates \
-		-v $(CURDIR)/public:/app/public \
+		-v $(CURDIR)/share:/app/share \
+		$(if $(wildcard $(PLEXAPI_LIB)),-v $(PLEXAPI_LIB):/app/plexapi-lib,) \
 		-w /app \
-		$(TEST_IMAGE) prove -Ilib -r t/
+		$(TEST_IMAGE) prove $(if $(wildcard $(PLEXAPI_LIB)),-I/app/plexapi-lib,) -Ilib -r t/
 
 lint: build-test
 	@$(LOCAL_DOCKER) run --rm \
 		-v $(CURDIR)/lib:/app/lib \
 		-v $(CURDIR)/bin:/app/bin \
 		-v $(CURDIR)/scripts:/app/scripts \
-		-v $(CURDIR)/balance_tv.pl:/app/balance_tv.pl \
 		-v $(CURDIR)/.perlcriticrc:/app/.perlcriticrc \
 		-w /app \
 		$(TEST_IMAGE) sh -c \

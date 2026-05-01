@@ -1,9 +1,10 @@
 package Balance::Sonarr;
-use v5.38;
-use feature qw(class try);
-no warnings qw(experimental::class experimental::try);  ## no critic (TestingAndDebugging::ProhibitNoWarnings)
-use utf8;
+use v5.42;
+use experimental 'class';
+use source::encoding 'utf8';
 use Balance::WebClient;
+
+our $VERSION = '0.01';
 
 class Balance::Sonarr :isa(Balance::WebClient) {  ## no critic (Modules::RequireEndWithOne)
     use Exporter 'import';
@@ -380,3 +381,35 @@ unless (caller) {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Balance::Sonarr - Sonarr API client and reconciliation for Balance
+
+=head1 SYNOPSIS
+
+  use Balance::Sonarr;
+
+  my $sonarr = Balance::Sonarr->new(
+      base_url => $ENV{SONARR_BASE_URL},
+      api_key  => $ENV{SONARR_API_KEY},
+  );
+
+  my $series = $sonarr->list_series();
+  $sonarr->update_path($series_id, $new_path);
+  $sonarr->apply_plan(report_file => 'var/sonarr-reconcile.json');
+
+=head1 DESCRIPTION
+
+C<Balance::Sonarr> provides a Sonarr v3 API client and reconciliation
+workflow for the Balance media management tool. It reads a Balance reconcile
+plan file and updates Sonarr series paths after media moves, with optional
+dry-run preview and retry-queue support.
+
+=head1 LICENSE
+
+Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+
+=cut

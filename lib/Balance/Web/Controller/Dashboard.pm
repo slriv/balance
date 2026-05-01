@@ -1,7 +1,9 @@
 package Balance::Web::Controller::Dashboard;
 
-use v5.38;
+use v5.42;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
+
+our $VERSION = '0.01';
 use Balance::Core qw(discover_default_mounts dir_size_kb fmt pct_fmt);
 use POSIX qw(strftime);
 
@@ -120,3 +122,19 @@ sub _start_balance_job($c, %opts) {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Balance::Web::Controller::Dashboard - Balance dashboard controller
+
+=head1 DESCRIPTION
+
+Handles the main dashboard page and plan/dry-run/apply job submission.
+
+=head1 LICENSE
+
+Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+
+=cut
