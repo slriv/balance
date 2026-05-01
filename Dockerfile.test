@@ -13,5 +13,7 @@ RUN curl -fsSL https://cpanmin.us -o /usr/local/bin/cpanm \
       DBD::SQLite \
       LWP::UserAgent \
       JSON::XS \
+      File::ShareDir \
+      WebService::Plex \
  && rm -rf ~/.cpanm
 WORKDIR /app
