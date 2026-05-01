@@ -12,6 +12,7 @@
 
 # Build artifacts
 ^Makefile$
+^GNUmakefile$
 ^blib/
 ^pm_to_blib
 ^MYMETA\.
@@ -28,6 +29,12 @@
 ^\.env\.example$
 ^\.vscode/
 ^\.perlcriticrc$
+^\.claude/
+^local/
+
+# Placeholder files
+\.gitkeep$
+\.keep$
 
 # Docker — not part of CPAN dist
 ^Dockerfile$
