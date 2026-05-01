@@ -1,68 +1,48 @@
 package Balance::Plex;
-use v5.38;
-use feature qw(class try);
-no warnings qw(experimental::class experimental::try);  ## no critic (TestingAndDebugging::ProhibitNoWarnings)
-use utf8;
-use Balance::WebClient;
+use v5.42;
+use experimental 'class';
+use source::encoding 'utf8';
 
-class Balance::Plex :isa(Balance::WebClient) {  ## no critic (Modules::RequireEndWithOne)
+our $VERSION = '0.01';
+
+class Balance::Plex {  ## no critic (Modules::RequireEndWithOne)
     use Exporter 'import';
     use JSON::PP ();
     use Getopt::Long qw(GetOptionsFromArray Configure);
+    use WebService::Plex;
     use Balance::Config qw(service_defaults load_env_file);
     use Balance::Reconcile ();
 
     our @EXPORT_OK = qw(resolve_library_id build_plan write_report defaults cli_main);
 
-    field $token :param;
+    field $base_url :param;
+    field $token    :param;
+    field $_plex;
 
     ADJUST {
-        die "token is required\n" unless length($token // '');
-    }
-
-    # --- Private helpers ---
-
-    sub _url_encode($s) {
-        $s =~ s/([^A-Za-z0-9\-_.~])/sprintf('%%%02X', ord($1))/ge;
-        return $s;
-    }
-
-    method _auth_headers() {
-        return { 'X-Plex-Token' => $token, 'Accept' => 'application/json' };
-    }
-
-    # _api_get is inherited from Balance::WebClient
-
-    method _api_put($path) {
-        return $self->_http->put($self->base_url . $path, {
-            headers => { %{$self->_auth_headers()}, 'Content-Length' => '0' },
-        });
+        die "base_url is required\n" unless length($base_url // '');
+        die "token is required\n"    unless length($token    // '');
+        $_plex = WebService::Plex->new(baseurl => $base_url, token => $token);
     }
 
     # --- Public API methods ---
 
     method list_libraries() {
-        my $resp = $self->_api_get('/library/sections');
-        die "Plex API error: $resp->{status} $resp->{reason}\n" unless $resp->{success};
-        return JSON::PP::decode_json($resp->{content});
+        return $_plex->library->sections();
     }
 
     method scan_library($library_id) {
-        my $resp = $self->_api_get("/library/sections/$library_id/refresh");
-        die "Plex API error: $resp->{status} $resp->{reason}\n" unless $resp->{success};
+        $_plex->library->refresh_section($library_id);
         return 1;
     }
 
     method scan_path($library_id, $path) {
-        my $encoded = _url_encode($path);
-        my $resp = $self->_api_get("/library/sections/$library_id/refresh?path=$encoded");
-        die "Plex API error: $resp->{status} $resp->{reason}\n" unless $resp->{success};
+        $_plex->library->refresh_section($library_id, path => $path);
         return 1;
     }
 
     method empty_trash($library_id) {
-        my $resp = $self->_api_put("/library/sections/$library_id/emptyTrash");
-        die "Plex API error: $resp->{status} $resp->{reason}\n" unless $resp->{success};
+        $_plex->library->empty_trash($library_id);
         return 1;
     }
 
@@ -111,7 +91,7 @@ class Balance::Plex :isa(Balance::WebClient) {  ## no critic (Modules::RequireEn
                  trash_emptied => [sort keys %affected] };
     }
 
-    # --- Stateless exports (Pattern A) ---
+    # --- Stateless exports ---
 
     # Given a Plex path and the already-fetched list_libraries() result, return the
     # section ID whose root path is the longest prefix of the given path.
@@ -249,7 +229,7 @@ class Balance::Plex :isa(Balance::WebClient) {  ## no critic (Modules::RequireEn
     sub _cli_usage($exit_code, $error = undef) {
         print STDERR "$error\n\n" if defined $error && length $error;
         print STDERR <<'USAGE';
-Usage: perl -Ilib lib/Balance/Plex.pm <command> [options]
+Usage: plex_reconcile <command> [options]
 
 Commands:
   libraries              List all Plex library sections with IDs and paths
@@ -270,12 +250,12 @@ Options:
   --help, -h             Show this help
 
 Examples:
-  perl -Ilib lib/Balance/Plex.pm libraries
-  perl -Ilib lib/Balance/Plex.pm scan --library-id=2
-  perl -Ilib lib/Balance/Plex.pm scan-path --library-id=2 --path=/data/TV/Show
-  perl -Ilib lib/Balance/Plex.pm apply --report-file=var/reconcile-plan.json
-  perl -Ilib lib/Balance/Plex.pm dry-run --report-file=var/reconcile-plan.json
-  perl -Ilib lib/Balance/Plex.pm empty-trash --library-id=2
+  plex_reconcile libraries
+  plex_reconcile scan --library-id=2
+  plex_reconcile scan-path --library-id=2 --path=/data/TV/Show
+  plex_reconcile apply --report-file=var/reconcile-plan.json
+  plex_reconcile dry-run --report-file=var/reconcile-plan.json
+  plex_reconcile empty-trash --library-id=2
 USAGE
         exit $exit_code;
     }
@@ -287,3 +267,74 @@ unless (caller) {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Balance::Plex - Plex Media Server reconciliation for Balance
+
+=head1 SYNOPSIS
+
+  use Balance::Plex;
+
+  my $plex = Balance::Plex->new(
+      base_url => $ENV{PLEX_BASE_URL},
+      token    => $ENV{PLEX_TOKEN},
+  );
+
+  my $libs = $plex->list_libraries();
+  $plex->scan_path(2, '/tv/ShowName');
+  $plex->empty_trash(2);
+  $plex->apply_plan(report_file => 'var/plex-reconcile.json');
+
+=head1 DESCRIPTION
+
+C<Balance::Plex> provides Plex library reconciliation for the Balance
+media management tool. It delegates all HTTP communication to
+L<WebService::Plex> and adds Balance-specific orchestration: reading
+reconcile plan files, scanning affected paths, and emptying library trash.
+
+=head1 CONSTRUCTOR
+
+=head2 new(%args)
+
+  my $plex = Balance::Plex->new(
+      base_url => 'http://localhost:32400',
+      token    => 'xxxx',
+  );
+
+=head1 METHODS
+
+=head2 list_libraries
+
+Returns the decoded Plex C</library/sections> response.
+
+=head2 scan_library($library_id)
+
+Triggers a full async scan of C<$library_id>.
+
+=head2 scan_path($library_id, $path)
+
+Triggers a partial scan limited to C<$path> within C<$library_id>.
+
+=head2 empty_trash($library_id)
+
+Empties trash for C<$library_id>.
+
+=head2 apply_plan(%args)
+
+Reads a Balance reconcile plan JSON (C<report_file>) and scans moved paths,
+then empties trash for each affected library. Pass C<dry_run =E<gt> 1> to
+preview without making API calls.
+
+=head1 EXPORTS
+
+C<resolve_library_id>, C<build_plan>, C<write_report>, C<defaults>,
+C<cli_main> are available for export on request.
+
+=head1 LICENSE
+
+Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+
+=cut

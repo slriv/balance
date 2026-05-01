@@ -1,10 +1,10 @@
 package Balance::PathMap;
 
-use v5.38;
-use feature qw(signatures try);
-no warnings qw(experimental::try);  ## no critic (TestingAndDebugging::ProhibitNoWarnings)
-use utf8;
+use v5.42;
+use source::encoding 'utf8';
 use Exporter 'import';
+
+our $VERSION = '0.01';
 
 our @EXPORT_OK = qw(load_path_map translate_path reverse_translate_path nas_roots);
 
@@ -65,3 +65,21 @@ sub nas_roots($maps) {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Balance::PathMap - Path translation between NAS and service (Sonarr/Plex) views
+
+=head1 DESCRIPTION
+
+Loads a path-map config file (C<KEY = VALUE> pairs) and translates file
+paths between the NAS mount namespace and the namespace seen by Sonarr or
+Plex inside their containers.
+
+=head1 LICENSE
+
+Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+
+=cut

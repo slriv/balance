@@ -1,13 +1,13 @@
 package Balance::Reconcile;
 
-use v5.38;
-use feature qw(signatures try);
-no warnings qw(experimental::try);  ## no critic (TestingAndDebugging::ProhibitNoWarnings)
-use utf8;
+use v5.42;
+use source::encoding 'utf8';
 use Exporter 'import';
 use JSON::PP ();
 use POSIX qw(strftime);
 use Balance::PathMap qw(translate_path);
+
+our $VERSION = '0.01';
 
 our @EXPORT_OK = qw(build_plan write_report);
 
@@ -53,3 +53,21 @@ sub write_report($path, %args) {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Balance::Reconcile - Build and write reconcile plans for Sonarr and Plex
+
+=head1 DESCRIPTION
+
+Translates move manifest records through a path map to produce a reconcile
+plan JSON file, which is then applied by L<Balance::Sonarr> or
+L<Balance::Plex> to update library paths after media moves.
+
+=head1 LICENSE
+
+Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+
+=cut

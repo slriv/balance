@@ -1,7 +1,9 @@
 package Balance::Web::Controller::Plex;
 
-use v5.38;
+use v5.42;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
+
+our $VERSION = '0.01';
 use Balance::Config qw(service_defaults load_env_file);
 use POSIX qw(strftime);
 
@@ -158,3 +160,20 @@ sub empty_trash ($c) {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Balance::Web::Controller::Plex - Plex reconcile UI controller
+
+=head1 DESCRIPTION
+
+Handles Plex reconcile plan/dry-run/apply, library scan, and empty-trash
+job submission for the Balance web UI.
+
+=head1 LICENSE
+
+Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+
+=cut

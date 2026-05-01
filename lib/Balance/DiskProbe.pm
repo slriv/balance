@@ -1,10 +1,12 @@
 package Balance::DiskProbe;
 
-use v5.38;
+use v5.42;
 use feature 'signatures';
-use utf8;
+use source::encoding 'utf8';
 use Exporter 'import';
 use Balance::FuzzyName qw(matches);
+
+our $VERSION = '0.01';
 
 our @EXPORT_OK = qw(
     path_exists
@@ -113,3 +115,21 @@ sub probe_service_roots($sonarr_paths, $plex_paths) {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Balance::DiskProbe - Disk and directory inspection for Balance
+
+=head1 DESCRIPTION
+
+Provides directory listing, fuzzy-name candidate search, show-directory
+metadata extraction (season count, tvdb ID), and service root accessibility
+checks used during Sonarr audit and reconcile operations.
+
+=head1 LICENSE
+
+Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+
+=cut

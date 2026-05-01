@@ -1,11 +1,12 @@
 package Balance::JobRunner;
 
-use v5.38;
-use feature qw(class);
-no warnings qw(experimental::class);  ## no critic (TestingAndDebugging::ProhibitNoWarnings)
-use utf8;
+use v5.42;
+use experimental 'class';
+use source::encoding 'utf8';
 use File::Path ();
 use POSIX ();
+
+our $VERSION = '0.01';
 
 class Balance::JobRunner {  ## no critic (Modules::RequireEndWithOne)
 
@@ -83,8 +84,6 @@ class Balance::JobRunner {  ## no critic (Modules::RequireEndWithOne)
         return;
     }
 
-    # Register a callback to receive live output bytes for a job.
-    # Also replays the existing log file so reconnects see prior output.
     method watch_job($job_id, $cb) {
         my $log = $self->log_path($job_id);
         if (-f $log) {
@@ -115,3 +114,21 @@ class Balance::JobRunner {  ## no critic (Modules::RequireEndWithOne)
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Balance::JobRunner - Async job execution for the Balance web UI
+
+=head1 DESCRIPTION
+
+Forks and exec's Balance CLI commands inside the Mojo::IOLoop event loop,
+streaming stdout/stderr to a log file and to registered WebSocket watchers
+in real time. Used by L<Balance::Web::Controller::Jobs>.
+
+=head1 LICENSE
+
+Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+
+=cut

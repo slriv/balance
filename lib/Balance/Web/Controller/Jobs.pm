@@ -1,7 +1,9 @@
 package Balance::Web::Controller::Jobs;
 
-use v5.38;
+use v5.42;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
+
+our $VERSION = '0.01';
 use POSIX qw(strftime);
 
 sub show ($c) {
@@ -39,3 +41,20 @@ sub stream ($c) {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Balance::Web::Controller::Jobs - Job detail and log-streaming controller
+
+=head1 DESCRIPTION
+
+Handles job detail display, cancellation, and live log streaming via
+WebSocket for the Balance web UI.
+
+=head1 LICENSE
+
+Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+
+=cut

@@ -1,10 +1,12 @@
 package Balance::FuzzyName;
 
-use v5.38;
+use v5.42;
 use feature 'signatures';
-use utf8;
+use source::encoding 'utf8';
 use Unicode::Normalize ();
 use Exporter 'import';
+
+our $VERSION = '0.01';
 
 our @EXPORT_OK = qw(normalize matches);
 
@@ -38,3 +40,22 @@ sub matches($a, $b) {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Balance::FuzzyName - Fuzzy show-name normalization for Balance
+
+=head1 DESCRIPTION
+
+Normalizes TV show directory names for comparison: strips years, inverts
+trailing articles ("Title, The"), lowercases, and collapses separators.
+Uses exact post-normalization comparison (no Levenshtein) to avoid false
+positives when updating Sonarr paths.
+
+=head1 LICENSE
+
+Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+
+=cut

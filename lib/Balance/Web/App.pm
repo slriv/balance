@@ -1,10 +1,13 @@
 package Balance::Web::App;
 
-use v5.38;
+use v5.42;
 use Mojo::Base 'Mojolicious', -signatures;
 use Balance::JobStore;
 use Balance::JobRunner;
 use Balance::ConfigStore;
+use File::ShareDir qw(dist_dir);
+
+our $VERSION = '0.01';
 
 sub startup ($self) {
     # TODO: add HTTP Basic or token auth before any external exposure
@@ -56,6 +59,10 @@ sub startup ($self) {
         return sprintf('%s-%d%04d', $prefix, time(), int(rand(9999)));
     });
 
+    my $share = -d 'share' ? 'share' : dist_dir('App-Balance');
+    $self->renderer->paths(["$share/templates"]);
+    $self->static->paths(["$share/public"]);
+
     $self->routes->namespaces(['Balance::Web::Controller']);
 
     my $r = $self->routes;
@@ -92,3 +99,33 @@ sub startup ($self) {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Balance::Web::App - Mojolicious application for the Balance web UI
+
+=head1 SYNOPSIS
+
+  # bin/balance_web.pl
+  use Mojolicious::Commands;
+  Mojolicious::Commands->start_app('Balance::Web::App');
+
+=head1 DESCRIPTION
+
+The L<Mojolicious> application class for Balance. Configures helpers for
+L<Balance::JobStore>, L<Balance::JobRunner>, and L<Balance::ConfigStore>,
+seeds C<%ENV> from persisted config on first request, and declares all
+routes for the dashboard, job management, config UI, Sonarr, and Plex
+reconcile pages.
+
+Templates and static assets are resolved via L<File::ShareDir> when
+installed from CPAN, with a fallback to the local C<share/> directory for
+development.
+
+=head1 LICENSE
+
+Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+
+=cut

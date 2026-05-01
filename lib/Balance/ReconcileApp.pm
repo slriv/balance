@@ -1,15 +1,15 @@
 package Balance::ReconcileApp;
 
-use v5.38;
-use feature qw(signatures try);
-no warnings qw(experimental::try);  ## no critic (TestingAndDebugging::ProhibitNoWarnings)
-use utf8;
+use v5.42;
+use source::encoding 'utf8';
 use Exporter 'import';
 use FindBin qw($Bin);
 use Getopt::Long qw(GetOptionsFromArray Configure);
 use Balance::Config qw(load_env_file redact_value);
 use Balance::Manifest qw(read_manifest successful_apply_records);
 use Balance::PathMap qw(load_path_map);
+
+our $VERSION = '0.01';
 
 our @EXPORT_OK = qw(run);
 
@@ -123,3 +123,22 @@ sub _print_config($service_name, $env_file, $defaults, $manifest_file, $path_map
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Balance::ReconcileApp - Shared CLI driver for Sonarr and Plex reconcile tools
+
+=head1 DESCRIPTION
+
+Implements the common command-line workflow used by C<sonarr_reconcile> and
+C<plex_reconcile>: loading env, reading the manifest, translating paths via
+the path map, building a reconcile plan, and dispatching apply/dry-run/config
+commands.
+
+=head1 LICENSE
+
+Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+
+=cut

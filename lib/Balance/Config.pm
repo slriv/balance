@@ -1,10 +1,10 @@
 package Balance::Config;
 
-use v5.38;
-use feature qw(signatures try);
-no warnings qw(experimental::try);  ## no critic (TestingAndDebugging::ProhibitNoWarnings)
-use utf8;
+use v5.42;
+use source::encoding 'utf8';
 use Exporter 'import';
+
+our $VERSION = '0.01';
 
 our @EXPORT_OK = qw(load_env_file service_defaults redact_value);
 
@@ -66,3 +66,29 @@ sub redact_value($value) {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Balance::Config - Environment-based configuration for Balance services
+
+=head1 SYNOPSIS
+
+  use Balance::Config qw(load_env_file service_defaults redact_value);
+
+  load_env_file('.env');
+  my $defs = service_defaults('sonarr');
+  my $safe = redact_value($defs->{credential_value});
+
+=head1 DESCRIPTION
+
+Loads C<.env> files into C<%ENV> and returns service-specific configuration
+defaults for C<sonarr> and C<plex>. Values are read from environment variables
+and can be overridden by callers.
+
+=head1 LICENSE
+
+Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+
+=cut

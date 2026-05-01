@@ -1,7 +1,9 @@
 package Balance::Web::Controller::Config;
 
-use v5.38;
+use v5.42;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
+
+our $VERSION = '0.01';
 use Balance::ConfigStore;
 
 sub index ($self) {
@@ -171,3 +173,20 @@ sub test_plex ($self) {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Balance::Web::Controller::Config - Balance configuration UI controller
+
+=head1 DESCRIPTION
+
+Handles the configuration page: reading/writing Sonarr and Plex connection
+settings via L<Balance::ConfigStore>, and live connectivity testing.
+
+=head1 LICENSE
+
+Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+
+=cut

@@ -1,5 +1,7 @@
-FROM alpine:3.20
-RUN apk add --no-cache perl perl-dev coreutils bash curl wget make gcc musl-dev sqlite-dev
+FROM perl:5.42-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libsqlite3-dev sqlite3 curl wget make gcc \
+ && rm -rf /var/lib/apt/lists/*
 RUN curl -fsSL https://cpanmin.us -o /usr/local/bin/cpanm \
  && chmod +x /usr/local/bin/cpanm \
  && cpanm --curl --notest \
@@ -9,5 +11,7 @@ RUN curl -fsSL https://cpanmin.us -o /usr/local/bin/cpanm \
       Mojolicious \
       DBI \
       DBD::SQLite \
+      LWP::UserAgent \
+      JSON::XS \
  && rm -rf ~/.cpanm
 WORKDIR /app

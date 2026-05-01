@@ -1,9 +1,10 @@
 package Balance::JobStore;
 
-use v5.38;
-use feature qw(class);
-no warnings qw(experimental::class);  ## no critic (TestingAndDebugging::ProhibitNoWarnings)
-use utf8;
+use v5.42;
+use experimental 'class';
+use source::encoding 'utf8';
+
+our $VERSION = '0.01';
 
 class Balance::JobStore {  ## no critic (Modules::RequireEndWithOne)
     use DBI ();
@@ -12,15 +13,7 @@ class Balance::JobStore {  ## no critic (Modules::RequireEndWithOne)
     field $log_dir :param = '/artifacts/jobs';
     field $_dbh;
 
-    ADJUST {
-        $_dbh = DBI->connect(
-            "dbi:SQLite:dbname=$db_path", '', '',
-            { RaiseError => 1, AutoCommit => 1, sqlite_unicode => 1 },
-        ) or die "Cannot open job database $db_path: $DBI::errstr\n";
-        $self->_init_db();
-    }
-
-    method _init_db() {
+    my method _init_db() {
         $_dbh->do(<<~'SQL');
             CREATE TABLE IF NOT EXISTS jobs (
                 id          TEXT PRIMARY KEY,
@@ -32,6 +25,14 @@ class Balance::JobStore {  ## no critic (Modules::RequireEndWithOne)
             )
         SQL
         return;
+    }
+
+    ADJUST {
+        $_dbh = DBI->connect(
+            "dbi:SQLite:dbname=$db_path", '', '',
+            { RaiseError => 1, AutoCommit => 1, sqlite_unicode => 1 },
+        ) or die "Cannot open job database $db_path: $DBI::errstr\n";
+        $self->&_init_db();
     }
 
     # Insert a new job, guarded by BEGIN IMMEDIATE to prevent concurrent inserts
@@ -96,3 +97,20 @@ class Balance::JobStore {  ## no critic (Modules::RequireEndWithOne)
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Balance::JobStore - SQLite-backed job metadata store for Balance
+
+=head1 DESCRIPTION
+
+Persists job records (id, type, status, timestamps) to SQLite. Ensures only
+one job runs at a time via C<BEGIN IMMEDIATE> locking on insert.
+
+=head1 LICENSE
+
+Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+
+=cut
