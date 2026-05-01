@@ -1,0 +1,46 @@
+# Standard exclusions
+\bRCS\b
+\bCVS\b
+,v$
+\B\.svn\b
+\B\.git\b
+^\.gitignore$
+^\.gitattributes$
+^\.githooks/
+^\.github/
+\.gitmodules
+
+# Build artifacts
+^Makefile$
+^blib/
+^pm_to_blib
+^MYMETA\.
+^META\.json$
+^META\.yml$
+\.tar\.gz$
+\.ppd$
+^_build/
+^Build$
+^Build.bat$
+
+# Dev / local only
+^\.env$
+^\.env\.example$
+^\.vscode/
+^\.perlcriticrc$
+
+# Docker — not part of CPAN dist
+^Dockerfile$
+^Dockerfile\.
+^docker-compose\.yml$
+
+# Deployment scripts — not part of CPAN dist
+^scripts/
+
+# Local artifacts
+^artifacts/
+^dist/
+
+# Test noise
+\.bak$
+~$

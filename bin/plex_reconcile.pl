@@ -17,3 +17,29 @@ exit run(
     service_module => 'Balance::Plex',
     argv           => \@ARGV,
 );
+
+__END__
+
+=head1 NAME
+
+plex_reconcile - Reconcile Plex library paths after Balance media moves
+
+=head1 SYNOPSIS
+
+  plex_reconcile [--env-file=.env]
+  plex_reconcile apply [--report-file=FILE]
+  plex_reconcile dry-run
+  plex_reconcile libraries
+  plex_reconcile scan --library-id=2
+
+=head1 DESCRIPTION
+
+Builds and applies a Plex path-reconcile plan based on the Balance apply
+manifest. Also provides direct Plex API commands (library listing, scan,
+empty-trash). See L<Balance::Plex> and L<Balance::ReconcileApp>.
+
+=head1 LICENSE
+
+Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+
+=cut
