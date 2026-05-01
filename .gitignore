@@ -7,3 +7,4 @@ testing/
 *.log
 artifacts/
 dist/
+/Makefile

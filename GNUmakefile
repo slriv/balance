@@ -5,6 +5,12 @@ define HELP_TEXT
 Targets:
 	help             - Show this help text
 
+	install          - Install module to system Perl (via generated Makefile)
+	dist             - Build CPAN distribution tarball (via generated Makefile)
+	disttest         - Build tarball and run its tests (via generated Makefile)
+	clean            - Remove build artifacts (via generated Makefile)
+	distclean        - Remove build artifacts and generated Makefile
+
 	cpan-build       - Generate MANIFEST and dist tarball (App-Balance-*.tar.gz)
 	cpan-test        - Smoke-test the generated tarball with cpanm
 	cpan-upload      - Upload tarball to PAUSE
@@ -62,7 +68,8 @@ SONARR_RUN ?= $(_LOCAL_RUN) sonarr_reconcile
 PLEX_RUN   ?= $(_LOCAL_RUN) plex_reconcile
 
 .PHONY: \
-	help cpan-build cpan-test cpan-upload \
+	help install dist disttest clean distclean \
+	cpan-build cpan-test cpan-upload \
 	build-test test test-all lint setup-git-hooks build rebuild package config \
 	sonarr-plan sonarr-dry-run sonarr-apply sonarr-config sonarr-series sonarr-rescan \
 	plex-plan plex-dry-run plex-apply plex-config plex-libraries plex-scan plex-scan-path plex-empty-trash \
@@ -71,10 +78,18 @@ PLEX_RUN   ?= $(_LOCAL_RUN) plex_reconcile
 help:
 	@echo "$$HELP_TEXT"
 
+# ----- EUMM pass-through targets -----
+
+install dist disttest clean:
+	perl Makefile.PL && make -f Makefile $@
+
+distclean:
+	perl Makefile.PL && make -f Makefile distclean
+
 # ----- CPAN distribution -----
 
 cpan-build:
-	perl Makefile.PL && perl -MExtUtils::Manifest -e 'ExtUtils::Manifest::mkmanifest()' && perl Makefile.PL && make dist
+	perl Makefile.PL && perl -MExtUtils::Manifest -e 'ExtUtils::Manifest::mkmanifest()' && perl Makefile.PL && make -f Makefile dist
 
 cpan-test: cpan-build
 	cpanm --test-only App-Balance-*.tar.gz
