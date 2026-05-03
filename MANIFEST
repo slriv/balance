@@ -5,7 +5,6 @@ bin/sonarr_reconcile.pl
 Changes
 lib/Balance/AuditSonarr.pm
 lib/Balance/Config.pm
-lib/Balance/ConfigStore.pm
 lib/Balance/Core.pm
 lib/Balance/DiskProbe.pm
 lib/Balance/FuzzyName.pm
@@ -39,7 +38,6 @@ t/00-load.t
 t/manifest.t
 t/unit/Balance/AuditSonarr.t
 t/unit/Balance/Config.t
-t/unit/Balance/ConfigStore.t
 t/unit/Balance/Core.t
 t/unit/Balance/DiskProbe.t
 t/unit/Balance/FuzzyName.t
