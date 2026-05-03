@@ -11,7 +11,7 @@ class Balance::Sonarr :isa(Balance::WebClient) {  ## no critic (Modules::Require
     use HTTP::Tiny;
     use JSON::PP ();
     use Getopt::Long qw(GetOptionsFromArray Configure);
-    use Balance::Config qw(service_defaults load_env_file);
+    use Balance::Config ();
     use Balance::Reconcile ();
     use Balance::AuditSonarr ();  # called as Balance::AuditSonarr::* so mocks intercept
 
@@ -168,7 +168,7 @@ class Balance::Sonarr :isa(Balance::WebClient) {  ## no critic (Modules::Require
             my $id   = resolve_series_id(path => $from, series => $series_list);
 
             unless (defined $id) {
-                warn "No series matched for path: $from — skipping\n";
+                warn "No series matched for path: $from - skipping\n";
                 $skipped++; next;
             }
 
@@ -224,13 +224,12 @@ class Balance::Sonarr :isa(Balance::WebClient) {  ## no critic (Modules::Require
     }
 
     sub defaults() {
-        return service_defaults('sonarr');
+        return Balance::Config::service_defaults('sonarr');
     }
 
     # --- CLI ---
 
     sub cli_main(@argv) {
-        my $env_file    = '.env';
         my $base_url    = '';
         my $api_key     = '';
         my $series_id   = '';
@@ -242,7 +241,6 @@ class Balance::Sonarr :isa(Balance::WebClient) {  ## no critic (Modules::Require
         Configure('pass_through');
         GetOptionsFromArray(
             \@argv,
-            'env-file=s'     => \$env_file,
             'base-url=s'     => \$base_url,
             'api-key=s'      => \$api_key,
             'series-id=s'    => \$series_id,
@@ -259,13 +257,12 @@ class Balance::Sonarr :isa(Balance::WebClient) {  ## no critic (Modules::Require
         _cli_usage(2, "Unknown command: $command")
             unless grep { $_ eq $command } qw(series rescan refresh apply dry-run audit repair audit-dry-run repair-dry-run);
 
-        load_env_file($env_file);
-        my $defs = service_defaults('sonarr');
+        my $defs = Balance::Config::service_defaults('sonarr');
         $base_url ||= $defs->{base_url};
         $api_key  ||= $defs->{credential_value};
 
-        die "SONARR_BASE_URL is not set. Use --base-url or set it in $env_file\n" unless $base_url;
-        die "SONARR_API_KEY is not set. Use --api-key or set it in $env_file\n"   unless $api_key;
+        die "SONARR_BASE_URL is not set. Use --base-url\n" unless $base_url;
+        die "SONARR_API_KEY is not set. Use --api-key\n"   unless $api_key;
 
         my $sonarr = Balance::Sonarr->new(base_url => $base_url, api_key => $api_key);
 
@@ -354,11 +351,10 @@ Commands:
     repair-dry-run         Preview repair actions without changing Sonarr
 
 Options:
-  --env-file=PATH        Env file to load (default: .env)
-  --base-url=URL         Override SONARR_BASE_URL
-  --api-key=KEY          Override SONARR_API_KEY
+  --base-url=URL         Sonarr base URL
+  --api-key=KEY          Sonarr API key
   --series-id=N          Series ID (required for rescan, refresh)
-    --report-file=PATH     Reconcile plan JSON or audit report JSON (default: from env/config)
+    --report-file=PATH     Reconcile plan JSON or audit report JSON
     --dry-run              Preview actions without calling Sonarr API
   --help, -h             Show this help
 
@@ -393,8 +389,8 @@ Balance::Sonarr - Sonarr API client and reconciliation for Balance
   use Balance::Sonarr;
 
   my $sonarr = Balance::Sonarr->new(
-      base_url => $ENV{SONARR_BASE_URL},
-      api_key  => $ENV{SONARR_API_KEY},
+      base_url => 'http://sonarr:8989',
+      api_key  => 'your-sonarr-api-key',
   );
 
   my $series = $sonarr->list_series();
@@ -410,6 +406,6 @@ dry-run preview and retry-queue support.
 
 =head1 LICENSE
 
-Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+Copyright (C) 2026 Sam Robertson. This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 
 =cut

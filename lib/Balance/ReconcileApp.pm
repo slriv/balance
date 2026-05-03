@@ -5,7 +5,7 @@ use source::encoding 'utf8';
 use Exporter 'import';
 use FindBin qw($Bin);
 use Getopt::Long qw(GetOptionsFromArray Configure);
-use Balance::Config qw(load_env_file redact_value);
+use Balance::Config ();
 use Balance::Manifest qw(read_manifest successful_apply_records);
 use Balance::PathMap qw(load_path_map);
 
@@ -16,7 +16,6 @@ our @EXPORT_OK = qw(run);
 sub run(%args) {
     my $service_name   = $args{service_name}   or die "service_name is required\n";
     my $service_module = $args{service_module} or die "service_module is required\n";
-    my $env_file = "$Bin/../.env";
     my $show_config = 0;
     my $limit;
     my $help = 0;
@@ -28,14 +27,11 @@ sub run(%args) {
     Configure('pass_through');
     GetOptionsFromArray(
         \@argv,
-        'env-file=s'       => \$env_file,
         'show-config'      => \$show_config,
         'limit=i'          => \$limit,
         'help|h'           => \$help,
     ) or _usage($service_name, 2, 'Invalid options.');
     Configure('no_pass_through');
-
-    load_env_file($env_file);
 
     die "Invalid service_module name: $service_module\n"
         unless $service_module =~ /\A[A-Za-z][A-Za-z0-9]*(?:::[A-Za-z][A-Za-z0-9]*)*\z/;
@@ -57,7 +53,7 @@ sub run(%args) {
 
     _usage($service_name, 0) if $help;
     if ($show_config) {
-        _print_config($service_name, $env_file, $defaults, $manifest_file, $path_map_file, $report_file);
+        _print_config($service_name, $defaults, $manifest_file, $path_map_file, $report_file);
         return 0;
     }
     die "Manifest file not found: $manifest_file\nRun an APPLY job first, or pass --manifest-file=...\n"
@@ -97,7 +93,6 @@ Usage: ${service_name}_reconcile.pl [options]
 Build a reconciliation plan for $service_name from the apply manifest.
 
 Options:
-    --env-file=/path       Optional env file to load before defaults (.env)
     --show-config          Print resolved config with redacted credentials
   --manifest-file=/path  Manifest JSONL input (default service-specific)
   --path-map-file=/path  Path mapping file (default service-specific)
@@ -108,11 +103,10 @@ USAGE
     exit $exit_code;
 }
 
-sub _print_config($service_name, $env_file, $defaults, $manifest_file, $path_map_file, $report_file) {
+sub _print_config($service_name, $defaults, $manifest_file, $path_map_file, $report_file) {
     print ucfirst($service_name), " config\n";
-    print "  env file:    $env_file\n";
     print "  base url:    ", (($defaults->{base_url} || '') || '(unset)'), "\n";
-    print "  credential:  $defaults->{credential_name}=", redact_value($defaults->{credential_value}), "\n"
+    print "  credential:  $defaults->{credential_name}=", Balance::Config::redact_value($defaults->{credential_value}), "\n"
         if $defaults->{credential_name};
     print "  manifest:    $manifest_file\n";
     print "  path map:    $path_map_file\n";
@@ -133,12 +127,11 @@ Balance::ReconcileApp - Shared CLI driver for Sonarr and Plex reconcile tools
 =head1 DESCRIPTION
 
 Implements the common command-line workflow used by C<sonarr_reconcile> and
-C<plex_reconcile>: loading env, reading the manifest, translating paths via
-the path map, building a reconcile plan, and dispatching apply/dry-run/config
-commands.
+C<plex_reconcile>: reading the manifest, translating paths via the path map,
+building a reconcile plan, and dispatching apply/dry-run/config commands.
 
 =head1 LICENSE
 
-Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+Copyright (C) 2026 Sam Robertson. This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 
 =cut

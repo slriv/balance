@@ -3,9 +3,24 @@ use Test::More;
 use Test::Mojo;
 use Test::MockModule;
 use File::Temp qw(tempdir);
+use File::Spec;
 
-local $ENV{BALANCE_JOB_DB}      = ':memory:';
-local $ENV{BALANCE_JOB_LOG_DIR} = tempdir(CLEANUP => 1);
+sub _test_app {
+    my $dir = tempdir(CLEANUP => 1);
+    my $db_path = File::Spec->catfile($dir, 'balance.db');
+    my $log_dir = File::Spec->catdir($dir, 'jobs');
+    mkdir $log_dir;
+
+    my $t = Test::Mojo->new('Balance::Web::App');
+    $t->app->config->{balance_job_db} = $db_path;
+    $t->app->balance_config->set_bulk({
+        balance_job_db      => $db_path,
+        balance_job_log_dir => $log_dir,
+        sonarr_url          => 'http://sonarr:8989',
+        sonarr_api_key      => 'test-key',
+    });
+    return $t;
+}
 
 # Mock JobRunner so we don't actually fork processes.
 my $mock_runner = Test::MockModule->new('Balance::JobRunner');
@@ -16,7 +31,7 @@ use Balance::Web::App;
 # --- GET /sonarr ---
 
 subtest 'GET /sonarr returns 200 with action buttons' => sub {
-    my $t = Test::Mojo->new('Balance::Web::App');
+    my $t = _test_app();
     $t->get_ok('/sonarr')
       ->status_is(200)
       ->content_like(qr/Plan/i)
@@ -29,7 +44,7 @@ subtest 'GET /sonarr returns 200 with action buttons' => sub {
 # --- POST /sonarr/plan ---
 
 subtest 'POST /sonarr/plan creates a job and redirects' => sub {
-    my $t = Test::Mojo->new('Balance::Web::App');
+    my $t = _test_app();
     $t->post_ok('/sonarr/plan')
       ->status_is(302)
       ->header_like(Location => qr{/jobs/sonarr-plan-});
@@ -41,7 +56,7 @@ subtest 'POST /sonarr/plan creates a job and redirects' => sub {
 # --- POST /sonarr/dry-run ---
 
 subtest 'POST /sonarr/dry-run creates a job and redirects' => sub {
-    my $t = Test::Mojo->new('Balance::Web::App');
+    my $t = _test_app();
     $t->post_ok('/sonarr/dry-run')
       ->status_is(302)
       ->header_like(Location => qr{/jobs/sonarr-dry-run-});
@@ -53,7 +68,7 @@ subtest 'POST /sonarr/dry-run creates a job and redirects' => sub {
 # --- POST /sonarr/audit ---
 
 subtest 'POST /sonarr/audit creates a job and redirects' => sub {
-    my $t = Test::Mojo->new('Balance::Web::App');
+    my $t = _test_app();
     $t->post_ok('/sonarr/audit')
       ->status_is(302)
       ->header_like(Location => qr{/jobs/sonarr-audit-});
@@ -65,7 +80,7 @@ subtest 'POST /sonarr/audit creates a job and redirects' => sub {
 # --- POST /sonarr/apply ---
 
 subtest 'POST /sonarr/apply creates a job and redirects' => sub {
-    my $t = Test::Mojo->new('Balance::Web::App');
+    my $t = _test_app();
     $t->post_ok('/sonarr/apply')
       ->status_is(302)
       ->header_like(Location => qr{/jobs/sonarr-apply-});
@@ -74,7 +89,7 @@ subtest 'POST /sonarr/apply creates a job and redirects' => sub {
 # --- POST /sonarr/repair ---
 
 subtest 'POST /sonarr/repair creates a job and redirects' => sub {
-    my $t = Test::Mojo->new('Balance::Web::App');
+    my $t = _test_app();
     $t->post_ok('/sonarr/repair')
       ->status_is(302)
       ->header_like(Location => qr{/jobs/sonarr-repair-});
@@ -83,7 +98,7 @@ subtest 'POST /sonarr/repair creates a job and redirects' => sub {
 # --- Conflict: second job while one is running ---
 
 subtest 'POST /sonarr/audit returns 409 when a job is running' => sub {
-    my $t = Test::Mojo->new('Balance::Web::App');
+    my $t = _test_app();
     $t->app->job_store->insert_job('running-job-1', 'sonarr_audit');
     $t->app->job_store->update_job('running-job-1', status => 'running');
     $t->post_ok('/sonarr/audit')->status_is(409);

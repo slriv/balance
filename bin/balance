@@ -7,14 +7,13 @@ use lib "$Bin/../lib";
 use Getopt::Long;
 use Balance::Manifest qw(append_manifest_record);
 use Balance::Core qw(
-    log_ts dir_size_kb fmt pct_fmt print_state discover_default_mounts
-    format_mount_discovery_error
+    log_ts dir_size_kb fmt pct_fmt print_state validate_media_path
 );
 $| = 1;  # unbuffered stdout
 STDERR->autoflush(1);
 
 BEGIN {
-    printf STDERR "balance_tv starting: perl %s on %s\n", $], $^O;
+    printf STDERR "balance starting: perl %s on %s\n", $], $^O;
 }
 
 $SIG{__DIE__}  = sub {
@@ -27,9 +26,8 @@ $SIG{__DIE__}  = sub {
 };
 $SIG{__WARN__} = sub { warn "WARN: @_" };
 
-# -- Config: auto-discover mounts or override with --mount flags --
+# -- Config: explicit mount list via --mount flags --
 my @MOUNTS;
-my $mount_prefix = '/tv';
 
 my $empty     = '';
 my $threshold = 20;   # %, minimum free space to keep on each target volume
@@ -50,12 +48,12 @@ sub usage {
     print <<"USAGE";
 Usage: $0 [options]
 
-Plan TV folder moves across mounts to balance storage use.
+Plan media folder moves across mounts to balance storage use.
 This script prints rsync commands; it does not execute them.
 
 Options:
-  --empty=/path        Drain this mount by setting its target TV to 0.
-                       Example: --empty=/tvnas2
+  --empty=/path        Drain this mount by setting its target media to 0.
+                       Example: --empty=/media-extra
 
     --threshold=N        Keep at least N% free space on each target volume.
                                              Lower values allow fuller disks; higher values keep
@@ -78,7 +76,7 @@ Options:
                                              A YYYYmmdd-HHMMSS suffix is added on each run.
 
   --apply, --execute   Apply the generated move plan immediately using rsync.
-                       Requires writable mounts in the container.
+                       Requires writable mounts in the current environment.
 
   --dry-run            Run rsync with -n (no files moved; shows what would happen).
                        Implies --apply.
@@ -89,10 +87,7 @@ Options:
                            A YYYYmmdd-HHMMSS suffix is added on each run.
 
   --mount=/path        Mount to include. Repeat to define custom mount list.
-                       If used, replaces auto-discovered mounts on first use.
-
-  --mount-prefix=/tv   Auto-discover mounted paths with this prefix when
-                       --mount is not provided. Default: /tv
+                       This is required when running balance directly.
 
   --verbose            Print each selected move during planning.
 
@@ -104,8 +99,8 @@ Examples:
     $0 --plan-file=/artifacts/balance-plan.sh
     $0 --apply --log-file=/artifacts/balance-apply.log
   $0 --dry-run
-  $0 --empty=/tvnas2
-  $0 --mount=/tv --mount=/tv2 --mount=/tv3 --verbose
+  $0 --empty=/media-extra
+  $0 --mount=/media --mount=/media2 --mount=/media3 --verbose
 USAGE
     exit $exit_code;
 }
@@ -122,7 +117,7 @@ GetOptions(
     'dry-run'     => \$dry_run,
     'log-file=s'  => \$log_file,
     'verbose'     => \$verbose,
-    'mount-prefix=s' => \$mount_prefix,
+
     'mount=s@'    => sub {
         @MOUNTS = () unless $mount_override++;
         push @MOUNTS, $_[1];
@@ -132,7 +127,6 @@ GetOptions(
 usage(0) if $help;
 usage(2, "--threshold must be >= 0") if $threshold < 0;
 usage(2, "--threshold must be <= 100") if $threshold > 100;
-usage(2, "--mount-prefix must be an absolute path") if $mount_prefix !~ m{^/};
 $apply = 1 if $dry_run;
 
 if (!$log_file) {
@@ -158,10 +152,14 @@ if ($log_file) {
 }
 
 if (!@MOUNTS) {
-    @MOUNTS = discover_default_mounts($mount_prefix);
-    die format_mount_discovery_error($mount_prefix)
-        unless @MOUNTS;
+    die "At least two mounts must be provided via --mount=/path\n";
 }
+for my $mnt (@MOUNTS) {
+    unless (validate_media_path($mnt)) {
+        die "Invalid mount path: $mnt\n";
+    }
+}
+usage(2, "At least two mounts are required") if @MOUNTS < 2;
 
 my $GB = 1024*1024;  # in KB units (du -sk)
 my $max_size_kb  = $max_size ? $max_size * $GB : 0;
@@ -335,7 +333,7 @@ for (1..5000) {  # safety cap
     $vol{$dst}{tv} += $sz;
     printf "  move: %-45s %s → %s  (%s)\n", qq{"$picked"}, $src, $dst, fmt($sz, $GB) if $verbose;
 }
-warn "balance_tv: greedy loop hit 5000-iteration safety cap — plan may be incomplete\n"
+warn "balance: greedy loop hit 5000-iteration safety cap — plan may be incomplete\n"
     if $_loop_iter >= 5000;
 
 # -- Output --
@@ -500,12 +498,12 @@ __END__
 
 =head1 NAME
 
-balance_tv.pl - Plan and apply TV show rebalancing across storage mounts
+balance - Plan and apply media rebalancing across storage mounts
 
 =head1 SYNOPSIS
 
-  balance_tv.pl [--dry-run] [--apply] [--mount=/tv] [--mount=/tv2]
-  balance_tv.pl --help
+  balance [--dry-run] [--apply] [--mount=/media] [--mount=/media2]
+  balance --help
 
 =head1 DESCRIPTION
 
@@ -516,6 +514,6 @@ subsequent Sonarr and Plex reconciliation.
 
 =head1 LICENSE
 
-Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+Copyright (C) 2026 Sam Robertson. This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 
 =cut

@@ -2,9 +2,9 @@ package Balance::Web::App;
 
 use v5.42;
 use Mojo::Base 'Mojolicious', -signatures;
+use Balance::Config;
 use Balance::JobStore;
 use Balance::JobRunner;
-use Balance::ConfigStore;
 use File::ShareDir qw(dist_dir);
 
 our $VERSION = '0.01';
@@ -12,47 +12,29 @@ our $VERSION = '0.01';
 sub startup ($self) {
     # TODO: add HTTP Basic or token auth before any external exposure
 
-    # Helpers — one instance per app object (isolated per Test::Mojo run)
-    $self->helper(job_store => sub ($c) {
-        return $c->app->{_job_store} //= Balance::JobStore->new(
-            db_path => ($ENV{BALANCE_JOB_DB}      || '/artifacts/balance-jobs.db'),
-            log_dir => ($ENV{BALANCE_JOB_LOG_DIR}  || '/artifacts/jobs'),
+    # NOTE: balance_config, job_store, and job_runner are memoized per process.
+    # Changing balance_job_db or balance_job_log_dir via the config UI requires
+    # a process restart for the new paths to take effect.
+    # TODO: consider invalidating cached helpers after config updates to those keys.
+    $self->helper(balance_config => sub ($c) {
+        return $c->app->{_balance_config} //= Balance::Config->new(
+            db_path => $c->app->config->{balance_job_db} // '/artifacts/balance-jobs.db',
         );
     });
 
-    $self->helper(config_store => sub ($c) {
-        return $c->app->{_config_store} //= Balance::ConfigStore->new(
-            db_path => ($ENV{BALANCE_JOB_DB}      || '/artifacts/balance-jobs.db'),
-        );
+    $self->helper(job_store => sub ($c) {
+        return $c->app->{_job_store} //= do {
+            my $cfg = $c->balance_config;
+            Balance::JobStore->new(db_path => $cfg->job_db, log_dir => $cfg->job_log_dir);
+        };
     });
 
     $self->helper(job_runner => sub ($c) {
-        return $c->app->{_job_runner} //= Balance::JobRunner->new(
-            log_dir => ($ENV{BALANCE_JOB_LOG_DIR}  || '/artifacts/jobs'),
-        );
+        return $c->app->{_job_runner} //= do {
+            Balance::JobRunner->new(log_dir => $c->balance_config->job_log_dir);
+        };
     });
 
-    # Seed %ENV from persisted config so job controllers pick it up on startup
-    my %config_to_env = (
-        tv_path_1        => 'TV_PATH_1',
-        tv_path_2        => 'TV_PATH_2',
-        tv_path_3        => 'TV_PATH_3',
-        tv_path_4        => 'TV_PATH_4',
-        sonarr_url       => 'SONARR_BASE_URL',
-        sonarr_api_key   => 'SONARR_API_KEY',
-        plex_url         => 'PLEX_BASE_URL',
-        plex_token       => 'PLEX_TOKEN',
-        plex_library_ids => 'PLEX_LIBRARY_IDS',
-    );
-    $self->hook(before_dispatch => sub ($c) {
-        state $seeded = 0;
-        return if $seeded++;
-        my $stored = $c->config_store->get_all;
-        for my $key (keys %config_to_env) {
-            $ENV{$config_to_env{$key}} = $stored->{$key}
-                if defined $stored->{$key} && $stored->{$key} ne '';
-        }
-    });
 
     # Generate a simple unique job ID from time + random digits
     $self->helper(new_job_id => sub ($c, $prefix = 'job') {
@@ -115,8 +97,8 @@ Balance::Web::App - Mojolicious application for the Balance web UI
 =head1 DESCRIPTION
 
 The L<Mojolicious> application class for Balance. Configures helpers for
-L<Balance::JobStore>, L<Balance::JobRunner>, and L<Balance::ConfigStore>,
-seeds C<%ENV> from persisted config on first request, and declares all
+L<Balance::JobStore>, L<Balance::JobRunner>, and L<Balance::Config>,
+uses persisted config for runtime wiring, and declares all
 routes for the dashboard, job management, config UI, Sonarr, and Plex
 reconcile pages.
 
@@ -126,6 +108,6 @@ development.
 
 =head1 LICENSE
 
-Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+Copyright (C) 2026 Sam Robertson. This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 
 =cut

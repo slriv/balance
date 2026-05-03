@@ -4,33 +4,29 @@ use v5.42;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 our $VERSION = '0.01';
-use Balance::ConfigStore;
+use Balance::Core qw(validate_media_path);
 
 sub index ($self) {
-    my $config_store = $self->config_store;
-    my $config = $config_store->get_all;
-    
-    # Get environment variables as defaults
-    my $env_config = {
-        tv_path_1        => $ENV{TV_PATH_1} || '/srv/tv',
-        tv_path_2        => $ENV{TV_PATH_2} || '/srv/tv2',
-        tv_path_3        => $ENV{TV_PATH_3} || '/srv/tv3',
-        tv_path_4        => $ENV{TV_PATH_4} || '/srv/tvnas2',
-        sonarr_url       => $ENV{SONARR_BASE_URL} || '',
-        sonarr_api_key   => $ENV{SONARR_API_KEY} || '',
-        plex_url         => $ENV{PLEX_BASE_URL} || '',
-        plex_token       => $ENV{PLEX_TOKEN} || '',
-        plex_library_ids => $ENV{PLEX_LIBRARY_IDS} || '1',
-    };
-    
-    # Merge database config (overrides env)
-    for my $key (keys %$env_config) {
-        if (defined $config->{$key}) {
-            $env_config->{$key} = $config->{$key};
-        }
-    }
-    
-    $self->stash(config => $env_config);
+    my $ac = $self->balance_config;
+
+    $self->stash(config => {
+        media_paths                => $ac->media_paths,
+        balance_manifest_file      => $ac->manifest_file,
+        balance_job_db             => $ac->job_db,
+        balance_job_log_dir        => $ac->job_log_dir,
+        sonarr_url                 => $ac->sonarr_url,
+        sonarr_api_key             => $ac->sonarr_api_key,
+        sonarr_audit_report_file   => $ac->sonarr_audit_report_file,
+        sonarr_path_map_file       => $ac->sonarr_path_map_file,
+        sonarr_report_file         => $ac->sonarr_report_file,
+        sonarr_retry_queue_file    => $ac->sonarr_retry_queue_file,
+        plex_url                   => $ac->plex_url,
+        plex_token                 => $ac->plex_token,
+        plex_path_map_file         => $ac->plex_path_map_file,
+        plex_report_file           => $ac->plex_report_file,
+        plex_retry_queue_file      => $ac->plex_retry_queue_file,
+        plex_library_ids           => $ac->plex_library_ids,
+    });
     $self->render(template => 'config/index');
     return;
 }
@@ -42,42 +38,105 @@ sub _validate_url ($url) {
 }
 
 sub update ($self) {
-    my $config_store = $self->config_store;
+    my $config = $self->balance_config;
 
-    my @keys = qw(tv_path_1 tv_path_2 tv_path_3 tv_path_4
-                  sonarr_url sonarr_api_key plex_url plex_token plex_library_ids);
-    my $p = $self->req->json // { map { $_ => scalar $self->param($_) } @keys };
+    my $p = $self->req->json;
+    if (!$p) {
+        my @paths  = $self->every_param('media_path[]');
+        my @labels = $self->every_param('media_label[]');
+        my @media_paths;
+
+        for my $i (0..$#paths) {
+            push @media_paths, {
+                path  => $paths[$i],
+                label => $labels[$i] // '',
+            };
+        }
+        $p = {
+            media_paths                 => [grep { defined $_->{path} && length $_->{path} } @media_paths],
+            balance_manifest_file       => scalar $self->param('balance_manifest_file'),
+            balance_job_db              => scalar $self->param('balance_job_db'),
+            balance_job_log_dir         => scalar $self->param('balance_job_log_dir'),
+            sonarr_url                  => scalar $self->param('sonarr_url'),
+            sonarr_api_key              => scalar $self->param('sonarr_api_key'),
+            sonarr_audit_report_file    => scalar $self->param('sonarr_audit_report_file'),
+            sonarr_path_map_file        => scalar $self->param('sonarr_path_map_file'),
+            sonarr_report_file          => scalar $self->param('sonarr_report_file'),
+            sonarr_retry_queue_file     => scalar $self->param('sonarr_retry_queue_file'),
+            plex_url                    => scalar $self->param('plex_url'),
+            plex_token                  => scalar $self->param('plex_token'),
+            plex_library_ids            => scalar $self->param('plex_library_ids'),
+            plex_path_map_file          => scalar $self->param('plex_path_map_file'),
+            plex_report_file            => scalar $self->param('plex_report_file'),
+            plex_retry_queue_file       => scalar $self->param('plex_retry_queue_file'),
+        };
+    }
+
+    my $media_paths = $p->{media_paths} // [];
+    unless (ref $media_paths eq 'ARRAY') {
+        return $self->render(json => { success => \0, error => 'media_paths must be an array' });
+    }
+
+    my @errors;
+    if (@$media_paths < 2) {
+        push @errors, 'At least 2 media paths are required';
+    }
+
+    my @normalized_paths;
+    for my $entry (@$media_paths) {
+        unless (ref $entry eq 'HASH') {
+            push @errors, 'Each media path entry must be an object';
+            next;
+        }
+        my $path = $entry->{path} // '';
+        unless (validate_media_path($path)) {
+            push @errors, "Invalid media path: $path";
+            next;
+        }
+        push @normalized_paths, {
+            path   => $path,
+            label  => $entry->{label} // '',
+            source => 'ui',
+        };
+    }
+
+    if (@errors) {
+        return $self->render(json => { success => \0, error => join('; ', @errors) });
+    }
 
     my %update = (
-        tv_path_1        => $p->{tv_path_1}        // '',
-        tv_path_2        => $p->{tv_path_2}        // '',
-        tv_path_3        => $p->{tv_path_3}        // '',
-        tv_path_4        => $p->{tv_path_4}        // '',
-        sonarr_url       => $p->{sonarr_url}       // '',
-        plex_url         => $p->{plex_url}         // '',
-        plex_library_ids => $p->{plex_library_ids} // '1',
+        balance_manifest_file    => $p->{balance_manifest_file}    // '',
+        balance_job_db           => $p->{balance_job_db}           // '',
+        balance_job_log_dir      => $p->{balance_job_log_dir}      // '',
+        sonarr_url               => $p->{sonarr_url}               // '',
+        sonarr_audit_report_file => $p->{sonarr_audit_report_file} // '',
+        sonarr_path_map_file     => $p->{sonarr_path_map_file}     // '',
+        sonarr_report_file       => $p->{sonarr_report_file}       // '',
+        sonarr_retry_queue_file  => $p->{sonarr_retry_queue_file}  // '',
+        plex_url                 => $p->{plex_url}                 // '',
+        plex_path_map_file       => $p->{plex_path_map_file}       // '',
+        plex_report_file         => $p->{plex_report_file}         // '',
+        plex_retry_queue_file    => $p->{plex_retry_queue_file}    // '',
+        plex_library_ids         => $p->{plex_library_ids}         // '1',
     );
 
-    # Only update credentials when explicitly provided (avoids overwriting with blank)
-    $update{sonarr_api_key} = $p->{sonarr_api_key} if $p->{sonarr_api_key};
-    $update{plex_token}     = $p->{plex_token}     if $p->{plex_token};
-    
-    $config_store->set_bulk(\%update);
-    
-    # Also update ENV for current session
-    $ENV{TV_PATH_1}        = $update{tv_path_1}        if $update{tv_path_1};
-    $ENV{TV_PATH_2}        = $update{tv_path_2}        if $update{tv_path_2};
-    $ENV{TV_PATH_3}        = $update{tv_path_3}        if $update{tv_path_3};
-    $ENV{TV_PATH_4}        = $update{tv_path_4}        if $update{tv_path_4};
-    $ENV{SONARR_BASE_URL}  = $update{sonarr_url}       if $update{sonarr_url};
-    $ENV{SONARR_API_KEY}   = $update{sonarr_api_key}   if $update{sonarr_api_key};
-    $ENV{PLEX_BASE_URL}    = $update{plex_url}         if $update{plex_url};
-    $ENV{PLEX_TOKEN}       = $update{plex_token}       if $update{plex_token};
-    $ENV{PLEX_LIBRARY_IDS} = $update{plex_library_ids} if $update{plex_library_ids};
-    
+    $update{sonarr_api_key} = $p->{sonarr_api_key} if defined $p->{sonarr_api_key} && length $p->{sonarr_api_key};
+    $update{plex_token}     = $p->{plex_token}     if defined $p->{plex_token}     && length $p->{plex_token};
+
+    try {
+        $config->set_media_paths(
+            [ map { { path => $_->{path}, label => $_->{label}, source => $_->{source} } } @normalized_paths ]
+        );
+        $config->set_bulk(\%update);
+    }
+    catch ($e) {
+        return $self->render(json => { success => \0, error => "Failed to save configuration: $e" });
+    }
+
     $self->render(json => {
         success => \1,
-        message => 'Configuration updated successfully'
+        message => 'Configuration updated successfully',
+        media_paths => [ map { { path => $_->{path}, label => $_->{label} } } @normalized_paths ],
     });
     return;
 }
@@ -179,10 +238,10 @@ Balance::Web::Controller::Config - Balance configuration UI controller
 =head1 DESCRIPTION
 
 Handles the configuration page: reading/writing Sonarr and Plex connection
-settings via L<Balance::ConfigStore>, and live connectivity testing.
+settings via L<Balance::Config>, and live connectivity testing.
 
 =head1 LICENSE
 
-Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+Copyright (C) 2026 Sam Robertson. This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 
 =cut

@@ -1,7 +1,7 @@
-Revision history for App-Balance
+# Revision history for App-Balance
 
 0.01    2026-04-30
         Initial CPAN release.
-        Rebalances TV show folders across multiple storage mounts while
+        Rebalances media folders across multiple storage mounts while
         keeping Sonarr and Plex synchronized. Includes Mojolicious web UI,
         async job runner, and CLI tools for plan/apply/reconcile workflows.

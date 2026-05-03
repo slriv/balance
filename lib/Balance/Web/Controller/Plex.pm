@@ -4,7 +4,6 @@ use v5.42;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 our $VERSION = '0.01';
-use Balance::Config qw(service_defaults load_env_file);
 use POSIX qw(strftime);
 
 sub index ($c) {
@@ -12,7 +11,18 @@ sub index ($c) {
     return;
 }
 
+sub _require_plex_config ($c) {
+    my $ac = $c->balance_config;
+    unless ($ac->has_plex) {
+        $c->render(text => 'Plex configuration is incomplete: base URL and token are required', status => 400);
+        return;
+    }
+    return $ac;
+}
+
 sub plan ($c) {
+    # Plan only needs manifest + path-map; Plex credentials are not required
+    my $ac = $c->balance_config;
     my $job_id = $c->new_job_id('plex-plan');
     my $store  = $c->job_store;
     try { $c->job_store->insert_job($job_id, 'plex_plan') }
@@ -25,7 +35,10 @@ sub plan ($c) {
         started_at => strftime('%Y-%m-%dT%H:%M:%SZ', gmtime),
     );
     $c->job_runner->start_job($job_id,
-        'plex_reconcile',
+        'plex_reconcile.pl',
+        '--manifest-file=' . $ac->manifest_file,
+        '--path-map-file=' . $ac->plex_path_map_file,
+        '--report-file='   . $ac->plex_report_file,
         sub ($result) {
             my $job = $store->get_job($job_id) or return;
             return unless ($job->{status} // '') eq 'running';
@@ -40,8 +53,7 @@ sub plan ($c) {
 }
 
 sub dry_run ($c) {
-    load_env_file('.env');
-    my $defs = service_defaults('plex');
+    my $ac = $c->_require_plex_config or return;
     my $job_id = $c->new_job_id('plex-dry-run');
     my $store  = $c->job_store;
     try { $c->job_store->insert_job($job_id, 'plex_dry_run') }
@@ -54,8 +66,10 @@ sub dry_run ($c) {
         started_at => strftime('%Y-%m-%dT%H:%M:%SZ', gmtime),
     );
     $c->job_runner->start_job($job_id,
-        'plex_reconcile', 'dry-run',
-        "--report-file=$defs->{report_file}",
+        'plex_reconcile.pl', 'dry-run',
+        '--base-url=' . $ac->plex_url,
+        '--token='    . $ac->plex_token,
+        '--report-file=' . $ac->plex_report_file,
         sub ($result) {
             my $job = $store->get_job($job_id) or return;
             return unless ($job->{status} // '') eq 'running';
@@ -70,8 +84,7 @@ sub dry_run ($c) {
 }
 
 sub apply ($c) {
-    load_env_file('.env');
-    my $defs = service_defaults('plex');
+    my $ac = $c->_require_plex_config or return;
     my $job_id = $c->new_job_id('plex-apply');
     my $store  = $c->job_store;
     try { $c->job_store->insert_job($job_id, 'plex_apply') }
@@ -84,8 +97,10 @@ sub apply ($c) {
         started_at => strftime('%Y-%m-%dT%H:%M:%SZ', gmtime),
     );
     $c->job_runner->start_job($job_id,
-        'plex_reconcile', 'apply',
-        "--report-file=$defs->{report_file}",
+        'plex_reconcile.pl', 'apply',
+        '--base-url=' . $ac->plex_url,
+        '--token='    . $ac->plex_token,
+        '--report-file=' . $ac->plex_report_file,
         sub ($result) {
             my $job = $store->get_job($job_id) or return;
             return unless ($job->{status} // '') eq 'running';
@@ -100,10 +115,10 @@ sub apply ($c) {
 }
 
 sub scan ($c) {
-    load_env_file('.env');
-    my $lib_id  = $c->param('library_id') // '';
-    my $job_id  = $c->new_job_id('plex-scan');
-    my $store   = $c->job_store;
+    my $ac     = $c->_require_plex_config or return;
+    my $lib_id = $c->param('library_id') // '';
+    my $job_id = $c->new_job_id('plex-scan');
+    my $store  = $c->job_store;
     try { $c->job_store->insert_job($job_id, 'plex_scan') }
     catch ($e) {
         $c->render(text => "Cannot start: $e", status => 409);
@@ -113,7 +128,11 @@ sub scan ($c) {
         status     => 'running',
         started_at => strftime('%Y-%m-%dT%H:%M:%SZ', gmtime),
     );
-    my @cmd = ('plex_reconcile', 'scan');
+    my @cmd = (
+        'plex_reconcile.pl', 'scan',
+        '--base-url=' . $ac->plex_url,
+        '--token='    . $ac->plex_token,
+    );
     push @cmd, "--library-id=$lib_id" if length $lib_id;
     $c->job_runner->start_job($job_id, @cmd,
         sub ($result) {
@@ -130,7 +149,7 @@ sub scan ($c) {
 }
 
 sub empty_trash ($c) {
-    load_env_file('.env');
+    my $ac     = $c->_require_plex_config or return;
     my $lib_id = $c->param('library_id') // '';
     my $job_id = $c->new_job_id('plex-trash');
     my $store  = $c->job_store;
@@ -143,7 +162,11 @@ sub empty_trash ($c) {
         status     => 'running',
         started_at => strftime('%Y-%m-%dT%H:%M:%SZ', gmtime),
     );
-    my @cmd = ('plex_reconcile', 'empty-trash');
+    my @cmd = (
+        'plex_reconcile.pl', 'empty-trash',
+        '--base-url=' . $ac->plex_url,
+        '--token='    . $ac->plex_token,
+    );
     push @cmd, "--library-id=$lib_id" if length $lib_id;
     $c->job_runner->start_job($job_id, @cmd,
         sub ($result) {
@@ -174,6 +197,6 @@ job submission for the Balance web UI.
 
 =head1 LICENSE
 
-Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+Copyright (C) 2026 Sam Robertson. This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 
 =cut
