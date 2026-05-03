@@ -4,11 +4,6 @@ App::Balance plans and applies media folder rebalancing across mounts, then reco
 
 ## Synopsis
 
-Install from CPAN or build locally:
-
-```bash
-cpanm App::Balance
-```
 
 Or build from this repository:
 
