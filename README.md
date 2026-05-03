@@ -1,5 +1,7 @@
 # App::Balance
 
+** NOTE ** this is a work in progress.  lot's of churn, lots of untested code. ***
+
 App::Balance plans and applies media folder rebalancing across mounts, then reconciles Sonarr and Plex to keep service library paths consistent.
 
 ## Synopsis
