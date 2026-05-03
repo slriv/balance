@@ -26,7 +26,7 @@ sonarr_reconcile - Reconcile Sonarr library paths after Balance media moves
 
 =head1 SYNOPSIS
 
-  sonarr_reconcile [--env-file=.env]
+  sonarr_reconcile [options]
   sonarr_reconcile apply [--report-file=FILE]
   sonarr_reconcile dry-run
   sonarr_reconcile series
@@ -40,6 +40,6 @@ audit, repair). See L<Balance::Sonarr> and L<Balance::ReconcileApp>.
 
 =head1 LICENSE
 
-Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+Copyright (C) 2026 Sam Robertson. This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 
 =cut

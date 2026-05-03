@@ -2,12 +2,25 @@ use v5.38;
 use Test::More;
 use Test::Mojo;
 use File::Temp qw(tempdir);
-
-local $ENV{BALANCE_JOB_DB}      = ':memory:';
-local $ENV{BALANCE_JOB_LOG_DIR} = tempdir(CLEANUP => 1);
-
+use File::Spec;
 use Balance::Web::App;
-my $t = Test::Mojo->new('Balance::Web::App');
+
+sub _test_app {
+    my $dir = tempdir(CLEANUP => 1);
+    my $db_path = File::Spec->catfile($dir, 'balance.db');
+    my $log_dir = File::Spec->catdir($dir, 'jobs');
+    mkdir $log_dir;
+
+    my $t = Test::Mojo->new('Balance::Web::App');
+    $t->app->config->{balance_job_db} = $db_path;
+    $t->app->balance_config->set_bulk({
+        balance_job_db      => $db_path,
+        balance_job_log_dir => $log_dir,
+    });
+    return $t;
+}
+
+my $t = _test_app();
 
 # Seed a job into the store
 my $store = $t->app->job_store;
@@ -46,7 +59,7 @@ subtest 'cancel updates job status to cancelled' => sub {
 
 subtest 'WebSocket /jobs/:id/stream connects successfully' => sub {
     # Write a log file so the handler has content to replay
-    my $log_dir = $ENV{BALANCE_JOB_LOG_DIR};
+    my $log_dir = $t->app->balance_config->job_log_dir;
     open my $fh, '>', "$log_dir/test-job-1.log"
         or plan skip_all => "Cannot create log file: $!";
     print $fh "line one\nline two\n";

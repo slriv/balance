@@ -65,8 +65,6 @@ subtest 'build_plan returns arrayref' => sub {
 # --- defaults ---
 
 subtest 'defaults returns hashref with required keys' => sub {
-    local $ENV{SONARR_BASE_URL} = 'http://sonarr:8989';
-    local $ENV{SONARR_API_KEY}  = 'testkey';
     my $d = defaults();
     ok(defined $d->{base_url},        'base_url present');
     ok(defined $d->{manifest_file},   'manifest_file present');

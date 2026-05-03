@@ -1,204 +1,173 @@
-# balance
+# App::Balance
 
-`balance` plans and applies TV-folder moves across mounts, then reconciles Sonarr and Plex so media paths stay consistent.
+App::Balance plans and applies media folder rebalancing across mounts, then reconciles Sonarr and Plex to keep service library paths consistent.
 
-The repository currently supports two primary workflows:
+## Synopsis
 
-1. **Build/test/package** via `make` (developer workflow)
-2. **Post-deploy operations** via the **Web UI** (`balance_web`)
+Install from CPAN or build locally:
 
-After deployment, the intended operations path is the web interface (plan, dry-run, apply, Sonarr/Plex plan/dry-run/apply, audit/repair, scan/trash) rather than invoking `make` targets manually.
+```bash
+cpanm App::Balance
+```
 
----
+Or build from this repository:
 
-## What this project does
+```bash
+make cpan-build
+make test
+sudo make install
+```
 
-### Planner / mover
+Run the tools after installation:
 
-- Computes how to rebalance TV folders across mounted paths (`/tv`, `/tv2`, `/tv3`, `/tvnas2` by default)
-- Can run in plan-only mode or apply mode
-- Writes timestamped plans/logs and JSONL apply manifest records
+```bash
+balance --help
+sonarr_reconcile.pl --help
+plex_reconcile.pl --help
+balance_web.pl --help
+```
 
-### Reconcile
+## Description
 
-- Reads the apply manifest and generates Sonarr/Plex reconcile plans
-- Supports dry-run and apply operations for Sonarr and Plex
-- Supports Sonarr audit + repair workflows for path validation/fixes
+App::Balance is a Perl command-line toolset and web dashboard for managing media across multiple filesystem mounts. It generates move plans, applies file migrations safely, and produces Sonarr/Plex reconciliation plans so media services continue to reference valid library paths.
+
+The packaged distribution includes:
+
+- `bin/balance` — plan and execute media moves using explicitly configured media paths
+- `bin/sonarr_reconcile.pl` — build and apply Sonarr reconciliation plans
+- `bin/plex_reconcile.pl` — build and apply Plex reconciliation plans
+- `bin/balance_web.pl` — optional web dashboard for plan/dry-run/apply workflows
+
+## Installation
+
+### From CPAN
+
+```bash
+cpanm App::Balance
+```
+
+### From source
+
+```bash
+perl Makefile.PL
+make
+make test
+sudo make install
+```
+
+### Install runtime dependencies
+
+The distribution requires Perl 5.042 or later and declares these prerequisites:
+
+- `Mojolicious`
+- `DBI`
+- `DBD::SQLite`
+- `File::ShareDir`
+- `WebService::Plex`
+- `LWP::UserAgent`
+- `JSON::XS`
+- `HTTP::Tiny`
+- `JSON::PP`
+
+## Usage
+
+### Command-line workflow
+
+Use `balance` to generate a move plan and optionally apply it:
+
+```bash
+balance --mount=/media --mount=/media2 --dry-run
+balance --mount=/media --mount=/media2 --apply
+```
+
+Use `sonarr_reconcile.pl` and `plex_reconcile.pl` to generate and apply service reconcile plans:
+
+```bash
+sonarr_reconcile.pl [options]
+sonarr_reconcile.pl apply [--report-file=FILE]
+plex_reconcile.pl [options]
+plex_reconcile.pl apply [--report-file=FILE]
+```
 
 ### Web UI
 
-- Provides a lightweight dashboard and async job runner
-- Stores job metadata in SQLite
-- Streams job logs
-
----
-
-## Prerequisites
-
-- Docker
-- GNU Make
-- (Optional) Sonarr and/or Plex endpoints reachable from where containers run
-
-For local development/test commands, dependencies are containerized via `Dockerfile.test` and `Dockerfile`.
-
----
-
-## Quick start
-
-### Sandbox (Local Testing)
-
-Fastest way to test without Sonarr/Plex endpoints:
+The web interface is an optional dashboard for plan/dry-run/apply workflows. It is backed by SQLite and the job runner in the repository.
 
 ```bash
-make build
-./scripts/deploy-sandbox.sh
-# → Opens http://localhost:8080
+balance_web.pl daemon
 ```
 
-See [QUICK-START.md](QUICK-START.md) for detailed usage.
+## Configuration
 
-### Production / Full Setup
+App::Balance stores its runtime integration configuration in the app's persistent config store and manages service settings through the web UI. Media mount selection is explicit and stored as configured `media_paths`, not discovered from legacy env vars.
 
-1. Copy `.env.example` to `.env` and set values for your environment.
-2. Ensure `config/sonarr-path-map` and `config/plex-path-map` are correct for your path translation needs.
-3. Build and validate:
-   - `make build`
-   - `make lint`
-   - `make test`
-4. Deploy: `docker compose up -d` or see [DEPLOYMENT.md](DEPLOYMENT.md) for options.
+Key configuration entrypoints:
 
----
+- the web UI config page — persisted service integration and runtime settings
+- `config/sonarr-path-map` — Sonarr path translation map
+- `config/plex-path-map` — Plex path translation map
 
-## Common make targets
+For mounts, configure media paths explicitly in the UI or pass `--mount=<path>` to `balance` rather than relying on deprecated `MEDIA_PATH_*` discovery.
 
-Run `make help` for the definitive list. Key targets:
+## Development
 
-### Quality
+This repository includes helper targets for local development and testing.
 
-- `make lint` — Perl syntax + perlcritic checks in test container
-- `make test` — unit tests
-- `make test-all` — full test suite
+Run tests locally:
 
-### Images / packaging
+```bash
+make test
+make test-all
+```
 
-- `make build` — build `balance-tv:local`
-- `make rebuild` — build without cache
-- `make package` — create distributable package in `dist/`
+Lint the code with:
 
-### Planner / apply
+```bash
+make lint
+```
 
-- `make run` — generate move plan (read-only)
-- `make dry-run` — preview apply behavior without moving files
-- `make apply` — apply planned moves
+Build the distribution tarball:
 
-### Sonarr reconcile
+```bash
+make cpan-build
+```
 
-- `make sonarr-plan`
-- `make sonarr-dry-run`
-- `make sonarr-apply`
-- `make sonarr-config`
-- `make sonarr-series`
-- `make sonarr-rescan SERIES_ID=N`
+Package and verify with:
 
-### Plex reconcile
+```bash
+make cpan-test
+```
 
-- `make plex-plan`
-- `make plex-dry-run`
-- `make plex-apply`
-- `make plex-config`
-- `make plex-libraries`
-- `make plex-scan LIBRARY_ID=N`
-- `make plex-scan-path LIBRARY_ID=N SCAN_PATH=/path`
-- `make plex-empty-trash LIBRARY_ID=N`
+## Running locally
 
-### Utilities
+The repository is intended to be executed directly rather than via a container runtime.
 
-- `make get-plex-token`
-- `make setup-git-hooks`
-
----
-
-## Web UI (docker compose)
-
-`docker-compose.yml` defines:
-
-- `balance` (planner)
-- `balance_apply` (apply mode)
-- `balance_web` (Mojolicious UI/API)
-
-To run the web UI:
-
-- Build image first (`make build`)
-- Start service: `docker compose up -d balance_web`
-- Open: `http://localhost:${BALANCE_WEB_PORT:-8080}`
-
-Recommended post-deploy flow in the UI:
-
-1. **Dashboard**: `Plan` → `Dry-Run` → `Apply`
-2. **Sonarr**: `Build Reconcile Plan` → `Dry-Run Apply` → `Apply Reconcile Plan`
-3. **Plex**: `Build Reconcile Plan` → `Dry-Run Apply` → `Apply Reconcile Plan`
-
-Environment used by web service includes:
-
-- `BALANCE_JOB_DB` (default `/artifacts/balance-jobs.db`)
-- `BALANCE_JOB_LOG_DIR` (default `/artifacts/jobs`)
-- Sonarr/Plex connection variables from `.env`
-
-> Note: current app has a TODO for auth hardening before external exposure.
-
----
-
-## Configuration reference
-
-Use `.env.example` as the source-of-truth template.
-
-Important variables include:
-
-- Mount paths: `TV_PATH_1..TV_PATH_4`
-- Storage paths: `ARTIFACTS_DIR`, `CONFIG_DIR`
-- Web port: `BALANCE_WEB_PORT`
-- Sonarr: `SONARR_BASE_URL`, `SONARR_API_KEY`, `SONARR_PATH_MAP_FILE`, `SONARR_AUDIT_REPORT_FILE`, `SONARR_REPORT_FILE`, `SONARR_RETRY_QUEUE_FILE`
-- Plex: `PLEX_BASE_URL`, `PLEX_TOKEN`, `PLEX_LIBRARY_IDS`, `PLEX_PATH_MAP_FILE`, `PLEX_REPORT_FILE`, `PLEX_RETRY_QUEUE_FILE`
-- Shared: `BALANCE_MANIFEST_FILE`
-
----
-
-## Artifacts
-
-Default artifact location is `ARTIFACTS_DIR` (host) mounted at `/artifacts` (container).
-
-Common outputs:
-
-- `balance-plan-<timestamp>.sh`
-- `balance-plan-<timestamp>.log`
-- `balance-apply-<timestamp>.log`
-- `balance-apply-manifest-<timestamp>.jsonl`
-- `sonarr-reconcile-plan.json`
-- `sonarr-audit-report.json`
-- `plex-reconcile-plan.json`
-- `balance-jobs.db`
-- `jobs/*.log`
-
----
+```bash
+perl bin/balance_web.pl daemon
+```
 
 ## Repository layout
 
-- `bin/` — CLI entrypoints (`balance_tv.pl`, `sonarr_reconcile.pl`, `plex_reconcile.pl`, `balance_web.pl`)
-- `lib/Balance/` — core modules (planner, config, reconcile, job store/runner, web controllers)
-- `templates/`, `public/` — web UI templates/assets
+- `bin/` — executable entrypoints
+- `lib/Balance/` — shared module implementation
 - `config/` — path map examples
-- `scripts/` — helper scripts (install/token/helpers)
+- `scripts/` — helper scripts
 - `t/` — test suite
-
----
+- `share/` — bundled shared data installed via `File::ShareDir`
 
 ## Contributing
 
 1. Create a topic branch
 2. Make focused changes
-3. Run `make lint` and tests
-4. Open a PR
+3. Run `make lint` and `make test`
+4. Open a pull request
 
-To enable local protection against pushing directly to `main`:
+## Support
 
-- `make setup-git-hooks`
+Report issues and feature requests on GitHub:
+
+<https://github.com/slriv/balance/issues>
+
+## License
+
+This distribution is released under the Perl license (Artistic License 2.0 or GNU General Public License v1.0+).

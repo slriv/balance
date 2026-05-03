@@ -15,21 +15,86 @@
     <section class="bg-gray-800 rounded-lg p-6 border border-gray-700">
       <h2 class="text-xl font-semibold mb-4 text-blue-400">Mount Paths</h2>
       <p class="text-xs text-gray-400 mb-4">
-        Paths to your TV show directories. These are mounted read-only for planning, read-write for apply.
+        Paths to your media directories. Define at least two directories in the UI.
       </p>
-      <div class="grid grid-cols-2 gap-4">
-        <% for my $i (1..4) { %>
+      <div id="media-paths" class="space-y-4">
+        <% my $paths = $config->{media_paths} // [];
+           $paths = [{ path => '', label => '' }, { path => '', label => '' }] unless @$paths;
+           for my $entry (@$paths) {
+        %>
+          <div class="media-path-row grid grid-cols-12 gap-4 items-end">
+            <div class="col-span-5">
+              <label class="text-xs text-gray-400 block mb-1">Path</label>
+              <input
+                type="text"
+                name="media_path[]"
+                value="<%= $entry->{path} || '' %>"
+                placeholder="/mnt/media"
+                class="w-full bg-gray-700 rounded px-3 py-2 text-sm path-input"
+              >
+            </div>
+            <div class="col-span-5">
+              <label class="text-xs text-gray-400 block mb-1">Label (optional)</label>
+              <input
+                type="text"
+                name="media_label[]"
+                value="<%= $entry->{label} || '' %>"
+                placeholder="Media 1"
+                class="w-full bg-gray-700 rounded px-3 py-2 text-sm label-input"
+              >
+            </div>
+            <div class="col-span-2">
+              <button type="button" class="remove-media-path bg-red-700 hover:bg-red-600 rounded px-3 py-2 text-sm text-white w-full">
+                Remove
+              </button>
+            </div>
+          </div>
+        <% } %>
+      </div>
+      <button id="add-media-path" type="button" class="mt-4 bg-blue-700 hover:bg-blue-600 rounded px-4 py-2 text-sm font-medium">
+        Add mount path
+      </button>
+    </section>
+
+    <!-- Balance Runtime Section -->
+    <section class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+      <h2 class="text-xl font-semibold mb-4 text-yellow-400">Balance Runtime</h2>
+      <p class="text-xs text-gray-400 mb-4">
+        Runtime artifact and job storage locations. These values are persisted in the UI and seeded into the app on startup.
+      </p>
+      <div class="grid grid-cols-1 gap-4">
+        <div>
+          <label class="text-xs text-gray-400 block mb-1">Manifest File</label>
+          <input
+            type="text"
+            name="balance_manifest_file"
+            value="<%= $config->{balance_manifest_file} || '/artifacts/balance-apply-manifest.jsonl' %>"
+            placeholder="/artifacts/balance-apply-manifest.jsonl"
+            class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+          >
+        </div>
+        <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="text-xs text-gray-400 block mb-1">TV_PATH_<%= $i %></label>
-            <input 
-              type="text" 
-              name="tv_path_<%= $i %>" 
-              value="<%= $config->{"tv_path_$i"} || '' %>"
-              placeholder="/srv/tv<%= $i == 1 ? '' : $i %>"
+            <label class="text-xs text-gray-400 block mb-1">Job DB Path</label>
+            <input
+              type="text"
+              name="balance_job_db"
+              value="<%= $config->{balance_job_db} || '/artifacts/balance-jobs.db' %>"
+              placeholder="/artifacts/balance-jobs.db"
               class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
             >
           </div>
-        <% } %>
+          <div>
+            <label class="text-xs text-gray-400 block mb-1">Job Log Directory</label>
+            <input
+              type="text"
+              name="balance_job_log_dir"
+              value="<%= $config->{balance_job_log_dir} || '/artifacts/jobs' %>"
+              placeholder="/artifacts/jobs"
+              class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+            >
+          </div>
+        </div>
       </div>
     </section>
 
@@ -61,6 +126,48 @@
           % if ($config->{sonarr_api_key}) {
             <p class="text-xs text-gray-400 mt-1">API key is stored. Leave blank to keep it unchanged.</p>
           % }
+        </div>
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label class="text-xs text-gray-400 block mb-1">Audit Report File</label>
+            <input
+              type="text"
+              name="sonarr_audit_report_file"
+              value="<%= $config->{sonarr_audit_report_file} || '/artifacts/sonarr-audit-report.json' %>"
+              placeholder="/artifacts/sonarr-audit-report.json"
+              class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+            >
+          </div>
+          <div>
+            <label class="text-xs text-gray-400 block mb-1">Path Map File</label>
+            <input
+              type="text"
+              name="sonarr_path_map_file"
+              value="<%= $config->{sonarr_path_map_file} || '/config/sonarr-path-map.example' %>"
+              placeholder="/config/sonarr-path-map.example"
+              class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+            >
+          </div>
+          <div>
+            <label class="text-xs text-gray-400 block mb-1">Reconcile Plan File</label>
+            <input
+              type="text"
+              name="sonarr_report_file"
+              value="<%= $config->{sonarr_report_file} || '/artifacts/sonarr-reconcile-plan.json' %>"
+              placeholder="/artifacts/sonarr-reconcile-plan.json"
+              class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+            >
+          </div>
+          <div>
+            <label class="text-xs text-gray-400 block mb-1">Retry Queue File</label>
+            <input
+              type="text"
+              name="sonarr_retry_queue_file"
+              value="<%= $config->{sonarr_retry_queue_file} || '/artifacts/sonarr-retry-queue.jsonl' %>"
+              placeholder="/artifacts/sonarr-retry-queue.jsonl"
+              class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+            >
+          </div>
         </div>
         <div>
           <button 
@@ -116,6 +223,38 @@
             >
           </div>
         </div>
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label class="text-xs text-gray-400 block mb-1">Path Map File</label>
+            <input
+              type="text"
+              name="plex_path_map_file"
+              value="<%= $config->{plex_path_map_file} || '/config/plex-path-map.example' %>"
+              placeholder="/config/plex-path-map.example"
+              class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+            >
+          </div>
+          <div>
+            <label class="text-xs text-gray-400 block mb-1">Reconcile Plan File</label>
+            <input
+              type="text"
+              name="plex_report_file"
+              value="<%= $config->{plex_report_file} || '/artifacts/plex-reconcile-plan.json' %>"
+              placeholder="/artifacts/plex-reconcile-plan.json"
+              class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+            >
+          </div>
+          <div>
+            <label class="text-xs text-gray-400 block mb-1">Retry Queue File</label>
+            <input
+              type="text"
+              name="plex_retry_queue_file"
+              value="<%= $config->{plex_retry_queue_file} || '/artifacts/plex-retry-queue.jsonl' %>"
+              placeholder="/artifacts/plex-retry-queue.jsonl"
+              class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+            >
+          </div>
+        </div>
         <div>
           <button 
             type="button" 
@@ -147,99 +286,204 @@
 </div>
 
 <script>
+function getMediaPathRows() {
+  return Array.from(document.querySelectorAll('.media-path-row'));
+}
+
+function buildMediaPaths() {
+  return getMediaPathRows().map(row => {
+    return {
+      path: row.querySelector('.path-input').value.trim(),
+      label: row.querySelector('.label-input').value.trim(),
+    };
+  }).filter(entry => entry.path.length > 0);
+}
+
+function addMediaPathRow(path = '', label = '') {
+  const container = document.getElementById('media-paths');
+  const row = document.createElement('div');
+  row.className = 'media-path-row grid grid-cols-12 gap-4 items-end';
+
+  const pathCol = document.createElement('div');
+  pathCol.className = 'col-span-5';
+  const pathLabel = document.createElement('label');
+  pathLabel.className = 'text-xs text-gray-400 block mb-1';
+  pathLabel.textContent = 'Path';
+  const pathInput = document.createElement('input');
+  pathInput.type = 'text';
+  pathInput.name = 'media_path[]';
+  pathInput.value = path;
+  pathInput.placeholder = '/mnt/media';
+  pathInput.className = 'w-full bg-gray-700 rounded px-3 py-2 text-sm path-input';
+  pathCol.append(pathLabel, pathInput);
+
+  const labelCol = document.createElement('div');
+  labelCol.className = 'col-span-5';
+  const labelLabel = document.createElement('label');
+  labelLabel.className = 'text-xs text-gray-400 block mb-1';
+  labelLabel.textContent = 'Label (optional)';
+  const labelInput = document.createElement('input');
+  labelInput.type = 'text';
+  labelInput.name = 'media_label[]';
+  labelInput.value = label;
+  labelInput.placeholder = 'Media 1';
+  labelInput.className = 'w-full bg-gray-700 rounded px-3 py-2 text-sm label-input';
+  labelCol.append(labelLabel, labelInput);
+
+  const buttonCol = document.createElement('div');
+  buttonCol.className = 'col-span-2';
+  const removeButton = document.createElement('button');
+  removeButton.type = 'button';
+  removeButton.className = 'remove-media-path bg-red-700 hover:bg-red-600 rounded px-3 py-2 text-sm text-white w-full';
+  removeButton.textContent = 'Remove';
+  buttonCol.append(removeButton);
+
+  row.append(pathCol, labelCol, buttonCol);
+  container.appendChild(row);
+}
+
+function removeMediaPathRow(button) {
+  const row = button.closest('.media-path-row');
+  if (!row) {
+    return;
+  }
+  const rows = getMediaPathRows();
+  if (rows.length <= 2) {
+    showStatus('At least two media paths are required.', 'error');
+    return;
+  }
+  row.remove();
+}
+
+function initMediaPathControls() {
+  document.getElementById('add-media-path').addEventListener('click', () => {
+    addMediaPathRow('', '');
+  });
+
+  document.getElementById('media-paths').addEventListener('click', (event) => {
+    if (!event.target.closest('.remove-media-path')) {
+      return;
+    }
+    removeMediaPathRow(event.target.closest('.remove-media-path'));
+  });
+}
+
+function showStatus(message, type) {
+  const el = document.getElementById('status-message');
+  const text = document.getElementById('status-text');
+  text.textContent = message;
+  el.className = 'mb-4 p-4 rounded ' +
+    (type === 'success' ? 'bg-green-900 text-green-200' : 'bg-red-900 text-red-200');
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+function buildConfigPayload() {
+  return {
+    media_paths: buildMediaPaths(),
+    balance_manifest_file: document.querySelector('input[name="balance_manifest_file"]').value.trim(),
+    balance_job_db: document.querySelector('input[name="balance_job_db"]').value.trim(),
+    balance_job_log_dir: document.querySelector('input[name="balance_job_log_dir"]').value.trim(),
+    sonarr_url: document.querySelector('input[name="sonarr_url"]').value.trim(),
+    sonarr_api_key: document.querySelector('input[name="sonarr_api_key"]').value,
+    sonarr_audit_report_file: document.querySelector('input[name="sonarr_audit_report_file"]').value.trim(),
+    sonarr_path_map_file: document.querySelector('input[name="sonarr_path_map_file"]').value.trim(),
+    sonarr_report_file: document.querySelector('input[name="sonarr_report_file"]').value.trim(),
+    sonarr_retry_queue_file: document.querySelector('input[name="sonarr_retry_queue_file"]').value.trim(),
+    plex_url: document.querySelector('input[name="plex_url"]').value.trim(),
+    plex_token: document.querySelector('input[name="plex_token"]').value,
+    plex_library_ids: document.querySelector('input[name="plex_library_ids"]').value.trim(),
+    plex_path_map_file: document.querySelector('input[name="plex_path_map_file"]').value.trim(),
+    plex_report_file: document.querySelector('input[name="plex_report_file"]').value.trim(),
+    plex_retry_queue_file: document.querySelector('input[name="plex_retry_queue_file"]').value.trim(),
+  };
+}
+
 document.getElementById('config-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  
-  const formData = new FormData(e.target);
-  const data = Object.fromEntries(formData);
-  
+  const data = buildConfigPayload();
+
+  if (data.media_paths.length < 2) {
+    showStatus('At least two media paths are required.', 'error');
+    return;
+  }
+
   try {
     const response = await fetch('/config/update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
-    
     const result = await response.json();
     if (result.success) {
       showStatus('✓ Configuration saved successfully', 'success');
     } else {
       showStatus('✗ Error: ' + (result.error || 'Unknown error'), 'error');
     }
-  } catch (e) {
-    showStatus('✗ Error: ' + e.message, 'error');
+  } catch (err) {
+    showStatus('✗ Error: ' + err.message, 'error');
   }
 });
 
-function showStatus(message, type) {
-  const el = document.getElementById('status-message');
-  const text = document.getElementById('status-text');
-  text.textContent = message;
-  el.className = 'mb-4 p-4 rounded ' + 
-    (type === 'success' ? 'bg-green-900 text-green-200' : 'bg-red-900 text-red-200');
-  el.style.display = 'block';
-  setTimeout(() => { el.style.display = 'none'; }, 4000);
-}
-
-async function testSonarr() {
+function testSonarr() {
   const url = document.querySelector('input[name="sonarr_url"]').value;
   const api_key = document.querySelector('input[name="sonarr_api_key"]').value;
   const resultEl = document.getElementById('sonarr-result');
-  
   if (!url || !api_key) {
     resultEl.textContent = '✗ URL and API key required';
     resultEl.className = 'p-2 rounded text-sm bg-red-900 text-red-200';
     resultEl.style.display = 'block';
     return;
   }
-  
-  try {
-    const response = await fetch('/config/test-sonarr', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, api_key })
+
+  fetch('/config/test-sonarr', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url, api_key })
+  })
+    .then(r => r.json())
+    .then(result => {
+      resultEl.textContent = (result.success ? '✓ ' : '✗ ') + (result.message || result.error);
+      resultEl.className = 'p-2 rounded text-sm ' +
+        (result.success ? 'bg-green-900 text-green-200' : 'bg-red-900 text-red-200');
+      resultEl.style.display = 'block';
+    })
+    .catch(error => {
+      resultEl.textContent = '✗ Connection failed: ' + error.message;
+      resultEl.className = 'p-2 rounded text-sm bg-red-900 text-red-200';
+      resultEl.style.display = 'block';
     });
-    
-    const result = await response.json();
-    resultEl.textContent = (result.success ? '✓ ' : '✗ ') + (result.message || result.error);
-    resultEl.className = 'p-2 rounded text-sm ' + 
-      (result.success ? 'bg-green-900 text-green-200' : 'bg-red-900 text-red-200');
-    resultEl.style.display = 'block';
-  } catch (e) {
-    resultEl.textContent = '✗ Connection failed: ' + e.message;
-    resultEl.className = 'p-2 rounded text-sm bg-red-900 text-red-200';
-    resultEl.style.display = 'block';
-  }
 }
 
-async function testPlex() {
+function testPlex() {
   const url = document.querySelector('input[name="plex_url"]').value;
   const token = document.querySelector('input[name="plex_token"]').value;
   const resultEl = document.getElementById('plex-result');
-  
   if (!url || !token) {
     resultEl.textContent = '✗ URL and token required';
     resultEl.className = 'p-2 rounded text-sm bg-red-900 text-red-200';
     resultEl.style.display = 'block';
     return;
   }
-  
-  try {
-    const response = await fetch('/config/test-plex', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, token })
+
+  fetch('/config/test-plex', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url, token })
+  })
+    .then(r => r.json())
+    .then(result => {
+      resultEl.textContent = (result.success ? '✓ ' : '✗ ') + (result.message || result.error);
+      resultEl.className = 'p-2 rounded text-sm ' +
+        (result.success ? 'bg-green-900 text-green-200' : 'bg-red-900 text-red-200');
+      resultEl.style.display = 'block';
+    })
+    .catch(error => {
+      resultEl.textContent = '✗ Connection failed: ' + error.message;
+      resultEl.className = 'p-2 rounded text-sm bg-red-900 text-red-200';
+      resultEl.style.display = 'block';
     });
-    
-    const result = await response.json();
-    resultEl.textContent = (result.success ? '✓ ' : '✗ ') + (result.message || result.error);
-    resultEl.className = 'p-2 rounded text-sm ' + 
-      (result.success ? 'bg-green-900 text-green-200' : 'bg-red-900 text-red-200');
-    resultEl.style.display = 'block';
-  } catch (e) {
-    resultEl.textContent = '✗ Connection failed: ' + e.message;
-    resultEl.className = 'p-2 rounded text-sm bg-red-900 text-red-200';
-    resultEl.style.display = 'block';
-  }
 }
+
+document.addEventListener('DOMContentLoaded', initMediaPathControls);
 </script>

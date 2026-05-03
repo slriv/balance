@@ -4,7 +4,6 @@ use v5.42;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 our $VERSION = '0.01';
-use Balance::Config qw(service_defaults load_env_file);
 use POSIX qw(strftime);
 
 sub index ($c) {
@@ -12,7 +11,18 @@ sub index ($c) {
     return;
 }
 
+sub _require_sonarr_config ($c) {
+    my $ac = $c->balance_config;
+    unless ($ac->has_sonarr) {
+        $c->render(text => 'Sonarr configuration is incomplete: base URL and API key are required', status => 400);
+        return;
+    }
+    return $ac;
+}
+
 sub plan ($c) {
+    # Plan only needs manifest + path-map; Sonarr credentials are not required
+    my $ac = $c->balance_config;
     my $job_id = $c->new_job_id('sonarr-plan');
     my $store = $c->job_store;
     try { $c->job_store->insert_job($job_id, 'sonarr_plan') }
@@ -25,7 +35,10 @@ sub plan ($c) {
         started_at => strftime('%Y-%m-%dT%H:%M:%SZ', gmtime),
     );
     $c->job_runner->start_job($job_id,
-        'sonarr_reconcile',
+        'sonarr_reconcile.pl',
+        '--manifest-file=' . $ac->manifest_file,
+        '--path-map-file=' . $ac->sonarr_path_map_file,
+        '--report-file='   . $ac->sonarr_report_file,
         sub ($result) {
             my $job = $store->get_job($job_id) or return;
             return unless ($job->{status} // '') eq 'running';
@@ -40,8 +53,7 @@ sub plan ($c) {
 }
 
 sub dry_run ($c) {
-    load_env_file('.env');
-    my $defs = service_defaults('sonarr');
+    my $ac = $c->_require_sonarr_config or return;
     my $job_id = $c->new_job_id('sonarr-dry-run');
     my $store = $c->job_store;
     try { $c->job_store->insert_job($job_id, 'sonarr_dry_run') }
@@ -54,8 +66,10 @@ sub dry_run ($c) {
         started_at => strftime('%Y-%m-%dT%H:%M:%SZ', gmtime),
     );
     $c->job_runner->start_job($job_id,
-        'sonarr_reconcile', 'dry-run',
-        "--report-file=$defs->{report_file}",
+        'sonarr_reconcile.pl', 'dry-run',
+        '--base-url=' . $ac->sonarr_url,
+        '--api-key='  . $ac->sonarr_api_key,
+        '--report-file=' . $ac->sonarr_report_file,
         sub ($result) {
             my $job = $store->get_job($job_id) or return;
             return unless ($job->{status} // '') eq 'running';
@@ -70,8 +84,7 @@ sub dry_run ($c) {
 }
 
 sub apply ($c) {
-    load_env_file('.env');
-    my $defs = service_defaults('sonarr');
+    my $ac = $c->_require_sonarr_config or return;
     my $job_id = $c->new_job_id('sonarr-apply');
     my $store = $c->job_store;
     try { $c->job_store->insert_job($job_id, 'sonarr_apply') }
@@ -84,8 +97,10 @@ sub apply ($c) {
         started_at => strftime('%Y-%m-%dT%H:%M:%SZ', gmtime),
     );
     $c->job_runner->start_job($job_id,
-        'sonarr_reconcile', 'apply',
-        "--report-file=$defs->{report_file}",
+        'sonarr_reconcile.pl', 'apply',
+        '--base-url=' . $ac->sonarr_url,
+        '--api-key='  . $ac->sonarr_api_key,
+        '--report-file=' . $ac->sonarr_report_file,
         sub ($result) {
             my $job = $store->get_job($job_id) or return;
             return unless ($job->{status} // '') eq 'running';
@@ -100,9 +115,7 @@ sub apply ($c) {
 }
 
 sub audit ($c) {
-    load_env_file('.env');
-    my $defs = service_defaults('sonarr');
-    my $audit_file = $defs->{audit_report_file};
+    my $ac = $c->_require_sonarr_config or return;
     my $job_id = $c->new_job_id('sonarr-audit');
     my $store = $c->job_store;
     try { $c->job_store->insert_job($job_id, 'sonarr_audit') }
@@ -115,8 +128,10 @@ sub audit ($c) {
         started_at => strftime('%Y-%m-%dT%H:%M:%SZ', gmtime),
     );
     $c->job_runner->start_job($job_id,
-        'sonarr_reconcile', 'audit',
-        "--report-file=$audit_file",
+        'sonarr_reconcile.pl', 'audit',
+        '--base-url=' . $ac->sonarr_url,
+        '--api-key='  . $ac->sonarr_api_key,
+        '--report-file=' . $ac->sonarr_audit_report_file,
         sub ($result) {
             my $job = $store->get_job($job_id) or return;
             return unless ($job->{status} // '') eq 'running';
@@ -131,9 +146,7 @@ sub audit ($c) {
 }
 
 sub repair ($c) {
-    load_env_file('.env');
-    my $defs = service_defaults('sonarr');
-    my $audit_file = $defs->{audit_report_file};
+    my $ac = $c->_require_sonarr_config or return;
     my $job_id = $c->new_job_id('sonarr-repair');
     my $store = $c->job_store;
     try { $c->job_store->insert_job($job_id, 'sonarr_repair') }
@@ -146,8 +159,10 @@ sub repair ($c) {
         started_at => strftime('%Y-%m-%dT%H:%M:%SZ', gmtime),
     );
     $c->job_runner->start_job($job_id,
-        'sonarr_reconcile', 'repair',
-        "--report-file=$audit_file",
+        'sonarr_reconcile.pl', 'repair',
+        '--base-url=' . $ac->sonarr_url,
+        '--api-key='  . $ac->sonarr_api_key,
+        '--report-file=' . $ac->sonarr_audit_report_file,
         sub ($result) {
             my $job = $store->get_job($job_id) or return;
             return unless ($job->{status} // '') eq 'running';
@@ -176,6 +191,6 @@ submission for the Balance web UI.
 
 =head1 LICENSE
 
-Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+Copyright (C) 2026 Sam Robertson. This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 
 =cut

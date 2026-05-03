@@ -8,12 +8,12 @@ install_share 'share';
 WriteMakefile(
     NAME             => 'App::Balance',
     VERSION_FROM     => 'lib/Balance/Core.pm',
-    ABSTRACT         => 'Rebalance TV media across mounts, syncing Sonarr and Plex',
+    ABSTRACT         => 'Rebalance media across mounts, syncing Sonarr and Plex',
     AUTHOR           => 'Sam Robertson <samr@slriv.com>',
-    LICENSE          => 'gpl_3',
+    LICENSE          => 'perl',
     MIN_PERL_VERSION => '5.042',
     EXE_FILES        => [qw(
-        bin/balance_tv.pl
+        bin/balance
         bin/sonarr_reconcile.pl
         bin/plex_reconcile.pl
         bin/balance_web.pl
@@ -51,5 +51,21 @@ WriteMakefile(
 
 package MY;  ## no critic (Modules::ProhibitMultiplePackages)
 sub postamble {
-    return File::ShareDir::Install::postamble(shift);
+    my $self = shift;
+    my $custom = <<'MAKE';
+# Override TEST_FILES to discover tests recursively under t/.
+# GNU Make ($(shell ...)) is required; this project targets Linux/Docker.
+TEST_FILES = $(shell find t -name '*.t' | sort)
+lint:
+	find lib bin -type f -print0 | xargs -0 perl -Mstrict -Mwarnings -c
+	find lib bin -type f -print0 | xargs -0 perlcritic --severity 4
+
+cpan-build:
+	perl Makefile.PL && perl -MExtUtils::Manifest -e 'ExtUtils::Manifest::mkmanifest()' && perl Makefile.PL && make dist
+
+cpan-test: cpan-build
+	cpanm --test-only App-Balance-*.tar.gz
+
+MAKE
+    return $custom . File::ShareDir::Install::postamble($self);
 }

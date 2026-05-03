@@ -5,7 +5,6 @@ use Test::More;
 my @modules = qw(
     Balance::Core
     Balance::Config
-    Balance::ConfigStore
     Balance::Manifest
     Balance::DiskProbe
     Balance::FuzzyName

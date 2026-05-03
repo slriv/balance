@@ -7,4 +7,10 @@ testing/
 *.log
 artifacts/
 dist/
+*.tar.gz
+blib/
+pm_to_blib/
+MYMETA.json
+MYMETA.yml
+.vscode/
 /Makefile

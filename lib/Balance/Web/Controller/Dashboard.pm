@@ -4,11 +4,11 @@ use v5.42;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 our $VERSION = '0.01';
-use Balance::Core qw(discover_default_mounts dir_size_kb fmt pct_fmt);
+use Balance::Core qw(dir_size_kb fmt pct_fmt);
 use POSIX qw(strftime);
 
 sub index ($c) {
-    my @mounts = discover_default_mounts();
+    my @mounts = $c->balance_config->media_mounts;
     my (%vol, @sizes);
     for my $m (@mounts) {
         my $used_kb = dir_size_kb($m);
@@ -25,6 +25,9 @@ sub index ($c) {
 }
 
 sub plan ($c) {
+    my @mounts = $c->balance_config->media_mounts;
+    return $c->render(text => 'At least 2 media paths are required', status => 400) unless @mounts >= 2;
+
     my $job_id = $c->new_job_id('balance-plan');
     my @args = _balance_args($c,
         log_file      => '/artifacts/balance-plan.log',
@@ -33,12 +36,15 @@ sub plan ($c) {
     _start_balance_job($c,
         job_id   => $job_id,
         job_type => 'balance_plan',
-        cmd      => ['balance_tv', @args],
+        cmd      => ['balance', @args],
     );
     return;
 }
 
 sub dry_run ($c) {
+    my @mounts = $c->balance_config->media_mounts;
+    return $c->render(text => 'At least 2 media paths are required', status => 400) unless @mounts >= 2;
+
     my $job_id = $c->new_job_id('balance-dry-run');
     my @args = _balance_args($c,
         log_file      => '/artifacts/balance-apply.log',
@@ -48,12 +54,15 @@ sub dry_run ($c) {
     _start_balance_job($c,
         job_id   => $job_id,
         job_type => 'balance_dry_run',
-        cmd      => ['balance_tv', @args],
+        cmd      => ['balance', @args],
     );
     return;
 }
 
 sub apply ($c) {
+    my @mounts = $c->balance_config->media_mounts;
+    return $c->render(text => 'At least 2 media paths are required', status => 400) unless @mounts >= 2;
+
     my $job_id = $c->new_job_id('balance-apply');
     my @args = _balance_args($c,
         log_file      => '/artifacts/balance-apply.log',
@@ -63,7 +72,7 @@ sub apply ($c) {
     _start_balance_job($c,
         job_id   => $job_id,
         job_type => 'balance_apply',
-        cmd      => ['balance_tv', @args],
+        cmd      => ['balance', @args],
     );
     return;
 }
@@ -80,11 +89,16 @@ sub _balance_args($c, %opts) {
         "--log-file=$opts{log_file}",
     );
 
-    push @args, '--manifest-file=/artifacts/balance-apply-manifest.jsonl'
+    push @args, '--manifest-file=' . $c->balance_config->manifest_file
         if $opts{include_apply};
 
     push @args, "--max-moves=$max_moves"
         if $max_moves =~ /^\d+$/ && $max_moves > 0;
+
+    for my $entry (@{ $c->balance_config->media_paths }) {
+        next unless defined $entry->{path} && length $entry->{path};
+        push @args, '--mount=' . $entry->{path};
+    }
 
     return @args;
 }
@@ -135,6 +149,6 @@ Handles the main dashboard page and plan/dry-run/apply job submission.
 
 =head1 LICENSE
 
-Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+Copyright (C) 2026 Sam Robertson. This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 
 =cut

@@ -7,8 +7,8 @@ use Exporter 'import';
 our $VERSION = '0.01';
 
 our @EXPORT_OK = qw(
-    log_ts dir_size_kb fmt pct_fmt print_state discover_default_mounts
-    format_mount_discovery_error
+    log_ts dir_size_kb fmt pct_fmt print_state validate_media_path
+    discover_default_mounts format_mount_discovery_error
 );
 
 sub log_ts() {
@@ -44,6 +44,15 @@ sub fmt($kb, $gb_kb) {
 sub pct_fmt($num, $den) {
     return "0.0%" unless $den;
     return sprintf("%.1f%%", (100 * $num) / $den);
+}
+
+sub validate_media_path($path) {
+    return 0 unless defined $path && length $path;
+    return 0 unless $path =~ m{^/};
+    return 0 if $path =~ m{(?:^|/)\.\.(?:/|$)};
+    return 0 if $path =~ m{\s};
+    return 0 if $path =~ m{//};
+    return 1;
 }
 
 sub print_state(%args) {
@@ -171,6 +180,6 @@ the Balance CLI and web UI.
 
 =head1 LICENSE
 
-Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+Copyright (C) 2026 Sam Robertson. This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 
 =cut

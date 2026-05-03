@@ -26,7 +26,7 @@ plex_reconcile - Reconcile Plex library paths after Balance media moves
 
 =head1 SYNOPSIS
 
-  plex_reconcile [--env-file=.env]
+  plex_reconcile [options]
   plex_reconcile apply [--report-file=FILE]
   plex_reconcile dry-run
   plex_reconcile libraries
@@ -40,6 +40,6 @@ empty-trash). See L<Balance::Plex> and L<Balance::ReconcileApp>.
 
 =head1 LICENSE
 
-Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+Copyright (C) 2026 Sam Robertson. This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 
 =cut

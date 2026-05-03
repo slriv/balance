@@ -11,7 +11,7 @@ class Balance::Plex {  ## no critic (Modules::RequireEndWithOne)
     use JSON::PP ();
     use Getopt::Long qw(GetOptionsFromArray Configure);
     use WebService::Plex;
-    use Balance::Config qw(service_defaults load_env_file);
+    use Balance::Config ();
     use Balance::Reconcile ();
 
     our @EXPORT_OK = qw(resolve_library_id build_plan write_report defaults cli_main);
@@ -69,7 +69,7 @@ class Balance::Plex {  ## no critic (Modules::RequireEndWithOne)
             my $from = $item->{remote_from_path} // '';
             my $lib  = resolve_library_id(path => $to, libraries => $libraries);
             unless (defined $lib) {
-                warn "No library matched for path: $to — skipping\n";
+                warn "No library matched for path: $to - skipping\n";
                 $skipped++; next;
             }
             if ($dry_run) {
@@ -129,13 +129,12 @@ class Balance::Plex {  ## no critic (Modules::RequireEndWithOne)
     }
 
     sub defaults() {
-        return service_defaults('plex');
+        return Balance::Config::service_defaults('plex');
     }
 
     # --- CLI ---
 
     sub cli_main(@argv) {
-        my $env_file    = '.env';
         my $base_url    = '';
         my $token       = '';
         my $library_id  = '';
@@ -147,7 +146,6 @@ class Balance::Plex {  ## no critic (Modules::RequireEndWithOne)
         Configure('pass_through');
         GetOptionsFromArray(
             \@argv,
-            'env-file=s'     => \$env_file,
             'base-url=s'     => \$base_url,
             'token=s'        => \$token,
             'library-id=s'   => \$library_id,
@@ -164,13 +162,12 @@ class Balance::Plex {  ## no critic (Modules::RequireEndWithOne)
         _cli_usage(2, "Unknown command: $command")
             unless grep { $_ eq $command } qw(libraries scan scan-path apply dry-run empty-trash);
 
-        load_env_file($env_file);
-        my $defs = service_defaults('plex');
+        my $defs = Balance::Config::service_defaults('plex');
         $base_url ||= $defs->{base_url};
         $token    ||= $defs->{credential_value};
 
-        die "PLEX_BASE_URL is not set. Use --base-url or set it in $env_file\n" unless $base_url;
-        die "PLEX_TOKEN is not set. Use --token or set it in $env_file\n"       unless $token;
+        die "PLEX_BASE_URL is not set. Use --base-url\n" unless $base_url;
+        die "PLEX_TOKEN is not set. Use --token\n"       unless $token;
 
         my $plex = Balance::Plex->new(base_url => $base_url, token => $token);
 
@@ -241,12 +238,11 @@ Commands:
   empty-trash            Empty trash for a library section
 
 Options:
-  --env-file=PATH        Env file to load (default: .env)
-  --base-url=URL         Override PLEX_BASE_URL
-  --token=TOKEN          Override PLEX_TOKEN
+  --base-url=URL         Plex base URL
+  --token=TOKEN          Plex token
   --library-id=N         Library section ID (required for scan, scan-path, empty-trash)
   --path=PATH            Folder path to scan (required for scan-path)
-  --report-file=PATH     Reconcile plan JSON (default: from env/config)
+  --report-file=PATH     Reconcile plan JSON
   --dry-run              Preview apply actions without calling Plex API
   --help, -h             Show this help
 
@@ -280,8 +276,8 @@ Balance::Plex - Plex Media Server reconciliation for Balance
   use Balance::Plex;
 
   my $plex = Balance::Plex->new(
-      base_url => $ENV{PLEX_BASE_URL},
-      token    => $ENV{PLEX_TOKEN},
+      base_url => 'http://plex:32400',
+      token    => 'your-plex-token',
   );
 
   my $libs = $plex->list_libraries();
@@ -336,6 +332,6 @@ C<cli_main> are available for export on request.
 
 =head1 LICENSE
 
-Copyright (C) 2026 Sam Robertson. GNU General Public License v3 or later.
+Copyright (C) 2026 Sam Robertson. This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 
 =cut

@@ -6,6 +6,41 @@ use JSON::PP ();
 
 use Balance::Plex qw(resolve_library_id build_plan defaults);
 
+{
+    package Local::FakePlexLibrary;
+
+    sub new ($class, %args) {
+        return bless \%args, $class;
+    }
+
+    sub sections ($self) {
+        my $impl = $self->{sections};
+        return ref $impl eq 'CODE' ? $impl->() : $impl;
+    }
+
+    sub refresh_section ($self, @args) {
+        my $impl = $self->{refresh_section};
+        return ref $impl eq 'CODE' ? $impl->(@args) : 1;
+    }
+
+    sub empty_trash ($self, @args) {
+        my $impl = $self->{empty_trash};
+        return ref $impl eq 'CODE' ? $impl->(@args) : 1;
+    }
+}
+
+{
+    package Local::FakePlex;
+
+    sub new ($class, $library) {
+        return bless { library => $library }, $class;
+    }
+
+    sub library ($self) {
+        return $self->{library};
+    }
+}
+
 # Helper to build the Plex list_libraries() response shape
 sub _libs {
     my @sections = @_;
@@ -66,8 +101,6 @@ subtest 'build_plan returns arrayref' => sub {
 # --- defaults ---
 
 subtest 'defaults returns hashref with required keys' => sub {
-    local $ENV{PLEX_BASE_URL} = 'http://plex:32400';
-    local $ENV{PLEX_TOKEN}    = 'testtoken';
     my $d = defaults();
     ok(defined $d->{base_url},      'base_url present');
     ok(defined $d->{manifest_file}, 'manifest_file present');
@@ -89,41 +122,60 @@ subtest 'new dies on empty token' => sub {
     dies_ok { Balance::Plex->new(base_url => 'http://plex:32400', token => '') } 'dies on empty token';
 };
 
-TODO: "HTTP API tests need rewriting to mock WebService::Plex since Balance::Plex no longer uses HTTP::Tiny directly" => sub {
-# --- HTTP API methods (mocked) ---
+# --- WebService::Plex-backed API methods (mocked) ---
 
-my $mock_http = Test::MockModule->new('HTTP::Tiny');
+my $mock_wsplex = Test::MockModule->new('WebService::Plex');
 
 subtest 'list_libraries returns parsed response' => sub {
     my $payload = { MediaContainer => { Directory =>
         { key => '1', title => 'TV', type => 'show', Location => { path => '/mnt/tv' } }
     } };
-    $mock_http->mock('get', sub { return { success => 1, content => JSON::PP::encode_json($payload) }; });
+    my $fake = Local::FakePlex->new(
+        Local::FakePlexLibrary->new(sections => $payload)
+    );
+    $mock_wsplex->mock(new => sub { return $fake; });
     my $plex = Balance::Plex->new(base_url => 'http://plex:32400', token => 'tok');
     my $data = $plex->list_libraries();
     is($data->{MediaContainer}{Directory}{key}, '1', 'library key');
-    $mock_http->unmock('get');
+    $mock_wsplex->unmock('new');
 };
 
 subtest 'list_libraries dies on API error' => sub {
-    $mock_http->mock('get', sub { return { success => 0, status => 401, reason => 'Unauthorized' }; });
+    my $fake = Local::FakePlex->new(
+        Local::FakePlexLibrary->new(sections => sub { die "HTTP error: 401 Unauthorized\n" })
+    );
+    $mock_wsplex->mock(new => sub { return $fake; });
     my $plex = Balance::Plex->new(base_url => 'http://plex:32400', token => 'tok');
     dies_ok { $plex->list_libraries() } 'dies on API error';
-    $mock_http->unmock('get');
+    $mock_wsplex->unmock('new');
 };
 
 subtest 'scan_path calls API and returns 1' => sub {
-    $mock_http->mock('get', sub { return { success => 1, content => '' }; });
+    my @calls;
+    my $fake = Local::FakePlex->new(
+        Local::FakePlexLibrary->new(
+            refresh_section => sub (@args) { push @calls, \@args; return 1; },
+        )
+    );
+    $mock_wsplex->mock(new => sub { return $fake; });
     my $plex = Balance::Plex->new(base_url => 'http://plex:32400', token => 'tok');
     is($plex->scan_path('2', '/mnt/tv/Show'), 1, 'returns 1');
-    $mock_http->unmock('get');
+    is_deeply($calls[0], ['2', path => '/mnt/tv/Show'], 'refresh_section called with library id and path');
+    $mock_wsplex->unmock('new');
 };
 
 subtest 'empty_trash calls API and returns 1' => sub {
-    $mock_http->mock('put', sub { return { success => 1, content => '' }; });
+    my @calls;
+    my $fake = Local::FakePlex->new(
+        Local::FakePlexLibrary->new(
+            empty_trash => sub (@args) { push @calls, \@args; return 1; },
+        )
+    );
+    $mock_wsplex->mock(new => sub { return $fake; });
     my $plex = Balance::Plex->new(base_url => 'http://plex:32400', token => 'tok');
     is($plex->empty_trash('2'), 1, 'returns 1');
-    $mock_http->unmock('put');
+    is_deeply($calls[0], ['2'], 'empty_trash called with library id');
+    $mock_wsplex->unmock('new');
 };
 
 # --- apply_plan ---
@@ -144,13 +196,13 @@ subtest 'apply_plan dry-run prints actions and returns counts' => sub {
     print {$fh} JSON::PP::encode_json($plan);
     close $fh;
 
-    # list_libraries response
-    my $libraries = { MediaContainer => { Directory =>
-        { key => '2', title => 'TV', type => 'show', Location => { path => '/mnt/tv' } }
-    } };
-    $mock_http->mock('get', sub { return { success => 1, content => JSON::PP::encode_json($libraries) }; });
-
     my $plex = Balance::Plex->new(base_url => 'http://plex:32400', token => 'tok');
+    my $mock_plex = Test::MockModule->new('Balance::Plex');
+    $mock_plex->mock('list_libraries', sub {
+        return { MediaContainer => { Directory =>
+            { key => '2', title => 'TV', type => 'show', Location => { path => '/mnt/tv' } }
+        } };
+    });
     my $out = '';
     open my $save_out, '>&', \*STDOUT or die;
     close STDOUT;
@@ -163,7 +215,7 @@ subtest 'apply_plan dry-run prints actions and returns counts' => sub {
     is($r->{skipped}, 0, 'none skipped');
     is(scalar @{$r->{trash_emptied}}, 1, 'one library queued for trash');
     like($out, qr/DRY-RUN.*lib=2/i, 'dry-run output mentions library id');
-    $mock_http->unmock('get');
+    $mock_plex->unmock('list_libraries');
 };
 
 subtest 'apply_plan skips items with no matching library' => sub {
@@ -179,16 +231,17 @@ subtest 'apply_plan skips items with no matching library' => sub {
     print {$fh} JSON::PP::encode_json($plan);
     close $fh;
 
-    my $libraries = { MediaContainer => { Directory =>
-        { key => '2', title => 'TV', type => 'show', Location => { path => '/mnt/tv' } }
-    } };
-    $mock_http->mock('get', sub { return { success => 1, content => JSON::PP::encode_json($libraries) }; });
-
     my $plex = Balance::Plex->new(base_url => 'http://plex:32400', token => 'tok');
+    my $mock_plex = Test::MockModule->new('Balance::Plex');
+    $mock_plex->mock('list_libraries', sub {
+        return { MediaContainer => { Directory =>
+            { key => '2', title => 'TV', type => 'show', Location => { path => '/mnt/tv' } }
+        } };
+    });
     my $r = $plex->apply_plan(report_file => $path, dry_run => 1);
     is($r->{planned}, 1, 'one planned item');
     is($r->{skipped}, 1, 'unmatched item skipped');
-    $mock_http->unmock('get');
+    $mock_plex->unmock('list_libraries');
 };
 
 subtest 'apply_plan returns zero counts on empty plan' => sub {
@@ -203,6 +256,4 @@ subtest 'apply_plan returns zero counts on empty plan' => sub {
     is($r->{planned}, 0, 'zero planned');
 };
 
-done_testing;
-};
 done_testing;
