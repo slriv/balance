@@ -89,39 +89,39 @@ subtest 'new dies on empty base_url' => sub {
 
 # --- HTTP API methods (mocked) ---
 
-my $mock_http = Test::MockModule->new('HTTP::Tiny');
+my $mock_sonarr = Test::MockModule->new('WebService::Arr::Sonarr');
 
 subtest 'get_series returns parsed list' => sub {
     my $payload = [{ id => 1, title => 'Show A', path => '/mnt/tv/Show A', sortTitle => 'show a' }];
-    $mock_http->mock('get', sub { return { success => 1, content => JSON::PP::encode_json($payload) }; });
+    $mock_sonarr->mock('series', sub { $payload });
     my $sonarr = Balance::Sonarr->new(base_url => 'http://sonarr:8989', api_key => 'testkey');
     my $list = $sonarr->get_series();
     is(scalar @$list, 1, 'one series');
     is($list->[0]{id}, 1, 'series id');
-    $mock_http->unmock('get');
+    $mock_sonarr->unmock('series');
 };
 
 subtest 'get_series dies on API error' => sub {
-    $mock_http->mock('get', sub { return { success => 0, status => 503, reason => 'Unavailable' }; });
+    $mock_sonarr->mock('series', sub { die "GET /api/v3/series failed: 503 Unavailable\n" });
     my $sonarr = Balance::Sonarr->new(base_url => 'http://sonarr:8989', api_key => 'testkey');
     dies_ok { $sonarr->get_series() } 'dies on API error';
-    $mock_http->unmock('get');
+    $mock_sonarr->unmock('series');
 };
 
 subtest 'rescan_series posts command and returns response' => sub {
     my $resp = { id => 42, status => 'queued' };
-    $mock_http->mock('post', sub { return { success => 1, content => JSON::PP::encode_json($resp) }; });
+    $mock_sonarr->mock('command', sub { $resp });
     my $sonarr = Balance::Sonarr->new(base_url => 'http://sonarr:8989', api_key => 'testkey');
     my $r = $sonarr->rescan_series(1);
     is($r->{status}, 'queued', 'command queued');
-    $mock_http->unmock('post');
+    $mock_sonarr->unmock('command');
 };
 
 subtest 'rescan_series dies on API error' => sub {
-    $mock_http->mock('post', sub { return { success => 0, status => 500, reason => 'Error' }; });
+    $mock_sonarr->mock('command', sub { die "POST /api/v3/command failed: 500 Error\n" });
     my $sonarr = Balance::Sonarr->new(base_url => 'http://sonarr:8989', api_key => 'testkey');
     dies_ok { $sonarr->rescan_series(1) } 'dies on API error';
-    $mock_http->unmock('post');
+    $mock_sonarr->unmock('command');
 };
 
 # --- apply_plan ---
@@ -143,7 +143,7 @@ subtest 'apply_plan dry-run prints actions and returns counts' => sub {
     close $fh;
 
     my $series_list = [{ id => 10, path => '/mnt/tv/Show A' }];
-    $mock_http->mock('get', sub { return { success => 1, content => JSON::PP::encode_json($series_list) }; });
+    $mock_sonarr->mock('series', sub { $series_list });
 
     my $sonarr = Balance::Sonarr->new(base_url => 'http://sonarr:8989', api_key => 'testkey');
     my $out = '';
@@ -157,7 +157,7 @@ subtest 'apply_plan dry-run prints actions and returns counts' => sub {
     is($r->{planned},   1, 'one planned item');
     is($r->{skipped},   0, 'none skipped');
     like($out, qr/DRY-RUN.*series=10/i, 'dry-run output mentions series id');
-    $mock_http->unmock('get');
+    $mock_sonarr->unmock('series');
 };
 
 subtest 'apply_plan skips items with no matching series' => sub {
@@ -174,13 +174,13 @@ subtest 'apply_plan skips items with no matching series' => sub {
     close $fh;
 
     my $series_list = [{ id => 10, path => '/mnt/tv/Show A' }];
-    $mock_http->mock('get', sub { return { success => 1, content => JSON::PP::encode_json($series_list) }; });
+    $mock_sonarr->mock('series', sub { $series_list });
 
     my $sonarr = Balance::Sonarr->new(base_url => 'http://sonarr:8989', api_key => 'testkey');
     my $r = $sonarr->apply_plan(report_file => $path, dry_run => 1);
     is($r->{planned}, 1, 'one planned item');
     is($r->{skipped}, 1, 'unmatched item skipped');
-    $mock_http->unmock('get');
+    $mock_sonarr->unmock('series');
 };
 
 subtest 'apply_plan returns zero counts on empty plan' => sub {
@@ -199,12 +199,12 @@ subtest 'apply_plan returns zero counts on empty plan' => sub {
 
 subtest 'get_root_folders returns parsed list' => sub {
     my $payload = [{ id => 1, path => '/tv', accessible => 1 }];
-    $mock_http->mock('get', sub { return { success => 1, content => JSON::PP::encode_json($payload) }; });
+    $mock_sonarr->mock('root_folders', sub { $payload });
     my $sonarr = Balance::Sonarr->new(base_url => 'http://sonarr:8989', api_key => 'testkey');
     my $folders = $sonarr->get_root_folders();
     is(scalar @$folders, 1, 'one root folder');
     is($folders->[0]{path}, '/tv', 'path correct');
-    $mock_http->unmock('get');
+    $mock_sonarr->unmock('root_folders');
 };
 
 # --- audit ---
@@ -213,13 +213,8 @@ subtest 'audit: dry_run does not write report file' => sub {
     my $series_payload  = [{ id => 1, title => 'Show A', path => '/tv/Show A', tvdbId => 1 }];
     my $folders_payload = [{ id => 1, path => '/tv' }];
 
-    $mock_http->mock('get', sub {
-        my (undef, $url) = @_;
-        if ($url =~ m{/rootfolder}) {
-            return { success => 1, content => JSON::PP::encode_json($folders_payload) };
-        }
-        return { success => 1, content => JSON::PP::encode_json($series_payload) };
-    });
+    $mock_sonarr->mock('series',       sub { $series_payload  });
+    $mock_sonarr->mock('root_folders', sub { $folders_payload });
 
     my $mock_audit = Test::MockModule->new('Balance::AuditSonarr');
     $mock_audit->mock('audit_series', sub { { status => 'ok', id => 1, title => 'Show A', path => '/tv/Show A' } });
@@ -231,7 +226,8 @@ subtest 'audit: dry_run does not write report file' => sub {
     is($r->{total}, 1, 'one series audited');
     ok(!-f $tmp_report, 'report not written in dry_run');
 
-    $mock_http->unmock('get');
+    $mock_sonarr->unmock('series');
+    $mock_sonarr->unmock('root_folders');
     $mock_audit->unmock('audit_series');
 };
 

@@ -24,6 +24,7 @@ WriteMakefile(
         'DBD::SQLite'        => '1.70',
         'File::ShareDir'     => '1.118',
         'WebService::Plex'   => '0.01',
+        'WebService::Arr'    => '0.001',
         'LWP::UserAgent'     => '6.0',
         'JSON::XS'           => '4.0',
         'HTTP::Tiny'         => '0.070',
