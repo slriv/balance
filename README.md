@@ -38,12 +38,6 @@ The packaged distribution includes:
 
 ## Installation
 
-### From CPAN
-
-```bash
-cpanm App::Balance
-```
-
 ### From source
 
 ```bash
