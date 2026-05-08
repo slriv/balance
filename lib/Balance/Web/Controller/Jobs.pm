@@ -10,7 +10,15 @@ sub show ($c) {
     my $job_id = $c->param('id');
     my $job    = $c->job_store->get_job($job_id);
     return $c->reply->not_found unless defined $job;
-    $c->render(template => 'jobs/show', job => $job);
+    my $runtime = ($job->{status} // '') eq 'running'
+        ? $c->job_runner->job_details($job_id)
+        : undef;
+    $c->render(
+        template => 'jobs/show',
+        job      => $job,
+        runtime  => $runtime,
+        log_path => $c->job_runner->log_path($job_id),
+    );
     return;
 }
 

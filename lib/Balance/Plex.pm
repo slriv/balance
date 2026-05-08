@@ -226,34 +226,34 @@ class Balance::Plex {  ## no critic (Modules::RequireEndWithOne)
 
     sub _cli_usage($exit_code, $error = undef) {
         print STDERR "$error\n\n" if defined $error && length $error;
-        print STDERR <<'USAGE';
-Usage: plex_reconcile <command> [options]
+        print STDERR <<~'USAGE';
+            Usage: balance_plex <command> [options]
 
-Commands:
-  libraries              List all Plex library sections with IDs and paths
-  scan                   Trigger a full scan of a library section
-  scan-path              Trigger a partial scan of a specific folder
-  apply                  Apply reconcile plan: scan moved paths + empty trash
-  dry-run                Preview apply without making API calls
-  empty-trash            Empty trash for a library section
+            Commands:
+              libraries              List all Plex library sections with IDs and paths
+              scan                   Trigger a full scan of a library section
+              scan-path              Trigger a partial scan of a specific folder
+              apply                  Apply reconcile plan: scan moved paths + empty trash
+              dry-run                Preview apply without making API calls
+              empty-trash            Empty trash for a library section
 
-Options:
-  --base-url=URL         Plex base URL
-  --token=TOKEN          Plex token
-  --library-id=N         Library section ID (required for scan, scan-path, empty-trash)
-  --path=PATH            Folder path to scan (required for scan-path)
-  --report-file=PATH     Reconcile plan JSON
-  --dry-run              Preview apply actions without calling Plex API
-  --help, -h             Show this help
+            Options:
+              --base-url=URL         Plex base URL
+              --token=TOKEN          Plex token
+              --library-id=N         Library section ID (required for scan, scan-path, empty-trash)
+              --path=PATH            Folder path to scan (required for scan-path)
+              --report-file=PATH     Reconcile plan JSON
+              --dry-run              Preview apply actions without calling Plex API
+              --help, -h             Show this help
 
-Examples:
-  plex_reconcile libraries
-  plex_reconcile scan --library-id=2
-  plex_reconcile scan-path --library-id=2 --path=/data/TV/Show
-  plex_reconcile apply --report-file=var/reconcile-plan.json
-  plex_reconcile dry-run --report-file=var/reconcile-plan.json
-  plex_reconcile empty-trash --library-id=2
-USAGE
+            Examples:
+                balance_plex libraries
+                balance_plex scan --library-id=2
+                balance_plex scan-path --library-id=2 --path=/data/TV/Show
+                balance_plex apply --report-file=var/reconcile-plan.json
+                balance_plex dry-run --report-file=var/reconcile-plan.json
+                balance_plex empty-trash --library-id=2
+        USAGE
         exit $exit_code;
     }
 }

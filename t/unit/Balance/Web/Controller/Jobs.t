@@ -1,6 +1,7 @@
 use v5.38;
 use Test::More;
 use Test::Mojo;
+use Test::MockModule;
 use File::Temp qw(tempdir);
 use File::Spec;
 use Balance::Web::App;
@@ -21,6 +22,7 @@ sub _test_app {
 }
 
 my $t = _test_app();
+my $mock_runner = Test::MockModule->new('Balance::JobRunner');
 
 # Seed a job into the store
 my $store = $t->app->job_store;
@@ -33,7 +35,31 @@ subtest 'GET /jobs/:id shows job details' => sub {
     $t->get_ok('/jobs/test-job-1')
       ->status_is(200)
       ->content_like(qr/test-job-1/)
-      ->content_like(qr/sonarr_audit/);
+      ->content_like(qr/sonarr_audit/)
+      ->content_like(qr/Log File/);
+};
+
+subtest 'GET /jobs/:id shows runtime details for a running job' => sub {
+    $store->insert_job('test-job-running', 'balance_plan');
+    $store->update_job('test-job-running', status => 'running', started_at => '2026-05-07T00:00:00Z');
+
+    $mock_runner->mock('job_details', sub ($self, $job_id) {
+        return undef unless $job_id eq 'test-job-running';
+        return {
+            pid      => 4242,
+            command  => q{/usr/bin/perl /workspace/bin/balance --threshold=20 --max-moves=5},
+            log_path => $self->log_path($job_id),
+        };
+    });
+
+    $t->get_ok('/jobs/test-job-running')
+      ->status_is(200)
+      ->content_like(qr/Running Job Details/)
+      ->content_like(qr/4242/)
+      ->content_like(qr/--max-moves=5/)
+      ->content_like(qr/test-job-running\.log/);
+
+        $store->update_job('test-job-running', status => 'cancelled', finished_at => '2026-05-07T00:05:00Z');
 };
 
 subtest 'GET /jobs/:id for unknown job returns 404' => sub {

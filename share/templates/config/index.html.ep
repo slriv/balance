@@ -31,6 +31,7 @@
                 value="<%= $entry->{path} || '' %>"
                 placeholder="/mnt/media"
                 class="w-full bg-gray-700 rounded px-3 py-2 text-sm path-input"
+                data-picker-kind="directory"
               >
             </div>
             <div class="col-span-5">
@@ -60,17 +61,32 @@
     <section class="bg-gray-800 rounded-lg p-6 border border-gray-700">
       <h2 class="text-xl font-semibold mb-4 text-yellow-400">Balance Runtime</h2>
       <p class="text-xs text-gray-400 mb-4">
-        Runtime artifact and job storage locations. These values are persisted in the UI and seeded into the app on startup.
+        Runtime artifact and job storage locations. Leave override fields blank to inherit from the artifact root.
       </p>
       <div class="grid grid-cols-1 gap-4">
+        <div>
+          <label class="text-xs text-gray-400 block mb-1">Artifact Root Directory</label>
+          <input
+            type="text"
+            name="artifact_root"
+            value="<%= $config->{artifact_root} || '' %>"
+            placeholder="<%= $config->{artifact_root_default} %>"
+            class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+            data-picker-kind="directory"
+          >
+          <p class="text-xs text-gray-500 mt-1">
+            Defaults to <code><%= $config->{artifact_root_default} %></code> at startup unless overridden by the environment.
+          </p>
+        </div>
         <div>
           <label class="text-xs text-gray-400 block mb-1">Manifest File</label>
           <input
             type="text"
             name="balance_manifest_file"
-            value="<%= $config->{balance_manifest_file} || '/artifacts/balance-apply-manifest.jsonl' %>"
-            placeholder="/artifacts/balance-apply-manifest.jsonl"
+            value="<%= $config->{balance_manifest_file} || '' %>"
+            placeholder="<%= $config->{balance_manifest_file_default} %>"
             class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+            data-picker-kind="file"
           >
         </div>
         <div class="grid grid-cols-2 gap-4">
@@ -79,9 +95,10 @@
             <input
               type="text"
               name="balance_job_db"
-              value="<%= $config->{balance_job_db} || '/artifacts/balance-jobs.db' %>"
-              placeholder="/artifacts/balance-jobs.db"
+              value="<%= $config->{balance_job_db} || '' %>"
+              placeholder="<%= $config->{balance_job_db_default} %>"
               class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+              data-picker-kind="file"
             >
           </div>
           <div>
@@ -89,12 +106,16 @@
             <input
               type="text"
               name="balance_job_log_dir"
-              value="<%= $config->{balance_job_log_dir} || '/artifacts/jobs' %>"
-              placeholder="/artifacts/jobs"
+              value="<%= $config->{balance_job_log_dir} || '' %>"
+              placeholder="<%= $config->{balance_job_log_dir_default} %>"
               class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+              data-picker-kind="directory"
             >
           </div>
         </div>
+        <p class="text-xs text-gray-500">
+          Job DB and log path changes may require an app restart if the process is already running.
+        </p>
       </div>
     </section>
 
@@ -133,9 +154,10 @@
             <input
               type="text"
               name="sonarr_audit_report_file"
-              value="<%= $config->{sonarr_audit_report_file} || '/artifacts/sonarr-audit-report.json' %>"
-              placeholder="/artifacts/sonarr-audit-report.json"
+              value="<%= $config->{sonarr_audit_report_file} || '' %>"
+              placeholder="<%= $config->{sonarr_audit_report_file_default} %>"
               class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+              data-picker-kind="file"
             >
           </div>
           <div>
@@ -146,6 +168,7 @@
               value="<%= $config->{sonarr_path_map_file} || '/config/sonarr-path-map.example' %>"
               placeholder="/config/sonarr-path-map.example"
               class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+              data-picker-kind="file"
             >
           </div>
           <div>
@@ -153,9 +176,10 @@
             <input
               type="text"
               name="sonarr_report_file"
-              value="<%= $config->{sonarr_report_file} || '/artifacts/sonarr-reconcile-plan.json' %>"
-              placeholder="/artifacts/sonarr-reconcile-plan.json"
+              value="<%= $config->{sonarr_report_file} || '' %>"
+              placeholder="<%= $config->{sonarr_report_file_default} %>"
               class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+              data-picker-kind="file"
             >
           </div>
           <div>
@@ -163,9 +187,10 @@
             <input
               type="text"
               name="sonarr_retry_queue_file"
-              value="<%= $config->{sonarr_retry_queue_file} || '/artifacts/sonarr-retry-queue.jsonl' %>"
-              placeholder="/artifacts/sonarr-retry-queue.jsonl"
+              value="<%= $config->{sonarr_retry_queue_file} || '' %>"
+              placeholder="<%= $config->{sonarr_retry_queue_file_default} %>"
               class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+              data-picker-kind="file"
             >
           </div>
         </div>
@@ -232,6 +257,7 @@
               value="<%= $config->{plex_path_map_file} || '/config/plex-path-map.example' %>"
               placeholder="/config/plex-path-map.example"
               class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+              data-picker-kind="file"
             >
           </div>
           <div>
@@ -239,9 +265,10 @@
             <input
               type="text"
               name="plex_report_file"
-              value="<%= $config->{plex_report_file} || '/artifacts/plex-reconcile-plan.json' %>"
-              placeholder="/artifacts/plex-reconcile-plan.json"
+              value="<%= $config->{plex_report_file} || '' %>"
+              placeholder="<%= $config->{plex_report_file_default} %>"
               class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+              data-picker-kind="file"
             >
           </div>
           <div>
@@ -249,9 +276,10 @@
             <input
               type="text"
               name="plex_retry_queue_file"
-              value="<%= $config->{plex_retry_queue_file} || '/artifacts/plex-retry-queue.jsonl' %>"
-              placeholder="/artifacts/plex-retry-queue.jsonl"
+              value="<%= $config->{plex_retry_queue_file} || '' %>"
+              placeholder="<%= $config->{plex_retry_queue_file_default} %>"
               class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+              data-picker-kind="file"
             >
           </div>
         </div>
@@ -285,7 +313,48 @@
 
 </div>
 
+<div id="path-picker-modal" style="display: none;" class="fixed inset-0 z-50 bg-black/60 p-4">
+  <div class="mx-auto mt-12 max-w-3xl rounded-lg border border-gray-700 bg-gray-800 shadow-xl">
+    <div class="flex items-center justify-between border-b border-gray-700 px-5 py-4">
+      <div>
+        <h2 id="path-picker-title" class="text-lg font-semibold text-gray-100">Choose Path</h2>
+        <p class="text-xs text-gray-400">Browse the local filesystem and choose a path for this config field.</p>
+      </div>
+      <button id="path-picker-close" type="button" class="rounded bg-gray-700 px-3 py-1 text-sm hover:bg-gray-600">Close</button>
+    </div>
+
+    <div class="space-y-4 px-5 py-4">
+      <div class="flex flex-wrap items-center gap-3">
+        <button id="path-picker-up" type="button" class="rounded bg-gray-700 px-3 py-2 text-sm hover:bg-gray-600">Up One Level</button>
+        <span id="path-picker-current-path" class="min-w-0 flex-1 rounded bg-gray-900 px-3 py-2 text-xs font-mono text-gray-300 break-all"></span>
+      </div>
+
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Selected Path</label>
+        <input id="path-picker-selected-path" type="text" class="w-full rounded bg-gray-700 px-3 py-2 text-sm font-mono">
+        <p class="mt-1 text-xs text-gray-500">You can navigate with the browser below or edit this path directly before choosing it.</p>
+      </div>
+
+      <div id="path-picker-entries" class="max-h-80 overflow-y-auto rounded border border-gray-700 bg-gray-900/40"></div>
+
+      <div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-700 pt-4">
+        <button id="path-picker-use-current" type="button" class="rounded bg-blue-700 px-4 py-2 text-sm font-medium hover:bg-blue-600">Use Current Folder</button>
+        <div class="flex gap-2">
+          <button id="path-picker-cancel" type="button" class="rounded bg-gray-700 px-4 py-2 text-sm hover:bg-gray-600">Cancel</button>
+          <button id="path-picker-choose" type="button" class="rounded bg-green-700 px-4 py-2 text-sm font-medium hover:bg-green-600">Use Selected Path</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
+const pathPickerState = {
+  input: null,
+  kind: 'file',
+  currentPath: '/',
+};
+
 function getMediaPathRows() {
   return Array.from(document.querySelectorAll('.media-path-row'));
 }
@@ -315,6 +384,7 @@ function addMediaPathRow(path = '', label = '') {
   pathInput.value = path;
   pathInput.placeholder = '/mnt/media';
   pathInput.className = 'w-full bg-gray-700 rounded px-3 py-2 text-sm path-input';
+  pathInput.dataset.pickerKind = 'directory';
   pathCol.append(pathLabel, pathInput);
 
   const labelCol = document.createElement('div');
@@ -340,6 +410,7 @@ function addMediaPathRow(path = '', label = '') {
 
   row.append(pathCol, labelCol, buttonCol);
   container.appendChild(row);
+  enhancePathPickerInput(pathInput);
 }
 
 function removeMediaPathRow(button) {
@@ -368,6 +439,171 @@ function initMediaPathControls() {
   });
 }
 
+function pathPickerModalElements() {
+  return {
+    modal: document.getElementById('path-picker-modal'),
+    title: document.getElementById('path-picker-title'),
+    currentPath: document.getElementById('path-picker-current-path'),
+    entries: document.getElementById('path-picker-entries'),
+    selectedPath: document.getElementById('path-picker-selected-path'),
+    useCurrent: document.getElementById('path-picker-use-current'),
+    up: document.getElementById('path-picker-up'),
+    choose: document.getElementById('path-picker-choose'),
+  };
+}
+
+function enhancePathPickerInput(input) {
+  if (!input || input.dataset.pickerEnhanced === 'true') {
+    return;
+  }
+
+  input.dataset.pickerEnhanced = 'true';
+  const wrapper = document.createElement('div');
+  wrapper.className = 'flex gap-2';
+  input.parentNode.insertBefore(wrapper, input);
+  wrapper.appendChild(input);
+  input.classList.add('flex-1');
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'shrink-0 rounded bg-gray-600 px-3 py-2 text-sm font-medium hover:bg-gray-500';
+  button.textContent = 'Browse';
+  button.addEventListener('click', () => openPathPicker(input));
+  wrapper.appendChild(button);
+}
+
+async function openPathPicker(input) {
+  const els = pathPickerModalElements();
+  pathPickerState.input = input;
+  pathPickerState.kind = input.dataset.pickerKind || 'file';
+  pathPickerState.currentPath = '/';
+
+  els.title.textContent = pathPickerState.kind === 'directory' ? 'Choose Directory' : 'Choose File';
+  els.selectedPath.value = input.value.trim() || input.placeholder.trim() || '';
+  els.useCurrent.style.display = pathPickerState.kind === 'directory' ? 'inline-flex' : 'none';
+  els.modal.style.display = 'block';
+
+  const initialPath = els.selectedPath.value || '/';
+  await loadPathPickerDirectory(initialPath);
+  updatePathPickerChooseButton();
+}
+
+function closePathPicker() {
+  const els = pathPickerModalElements();
+  els.modal.style.display = 'none';
+  pathPickerState.input = null;
+}
+
+function updatePathPickerChooseButton() {
+  const els = pathPickerModalElements();
+  const selectedPath = els.selectedPath.value.trim();
+  els.choose.disabled = !selectedPath || !selectedPath.startsWith('/');
+  els.choose.classList.toggle('opacity-50', els.choose.disabled);
+  els.choose.classList.toggle('cursor-not-allowed', els.choose.disabled);
+}
+
+function renderPathPickerEntries(entries) {
+  const els = pathPickerModalElements();
+  els.entries.innerHTML = '';
+
+  if (!entries.length) {
+    const empty = document.createElement('div');
+    empty.className = 'px-3 py-4 text-sm text-gray-500';
+    empty.textContent = 'No matching entries found in this directory.';
+    els.entries.appendChild(empty);
+    return;
+  }
+
+  entries.forEach((entry) => {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'flex w-full items-center justify-between gap-4 border-b border-gray-800 px-3 py-2 text-left text-sm hover:bg-gray-800 last:border-b-0';
+
+    const label = document.createElement('span');
+    label.className = entry.type === 'directory' ? 'font-medium text-blue-300' : 'font-mono text-gray-200';
+    label.textContent = entry.type === 'directory' ? `📁 ${entry.name}` : entry.name;
+
+    const meta = document.createElement('span');
+    meta.className = 'text-xs uppercase tracking-wide text-gray-500';
+    meta.textContent = entry.type;
+
+    row.append(label, meta);
+    row.addEventListener('click', async () => {
+      const els = pathPickerModalElements();
+      if (entry.type === 'directory') {
+        if (pathPickerState.kind === 'directory') {
+          els.selectedPath.value = entry.path;
+        }
+        await loadPathPickerDirectory(entry.path);
+        updatePathPickerChooseButton();
+        return;
+      }
+
+      els.selectedPath.value = entry.path;
+      updatePathPickerChooseButton();
+    });
+    els.entries.appendChild(row);
+  });
+}
+
+async function loadPathPickerDirectory(path) {
+  const els = pathPickerModalElements();
+  const params = new URLSearchParams({
+    kind: pathPickerState.kind,
+    path,
+  });
+
+  try {
+    const response = await fetch(`/config/browse?${params.toString()}`);
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error(result.error || 'Unable to browse path');
+    }
+
+    pathPickerState.currentPath = result.current_path;
+    els.currentPath.textContent = result.current_path;
+    els.up.disabled = !result.parent_path;
+    els.up.dataset.parentPath = result.parent_path || '';
+    if (pathPickerState.kind === 'directory' && !els.selectedPath.value.trim()) {
+      els.selectedPath.value = result.current_path;
+    }
+    renderPathPickerEntries(result.entries || []);
+  } catch (error) {
+    showStatus(`✗ ${error.message}`, 'error');
+  }
+}
+
+function initPathPickerControls() {
+  document.querySelectorAll('input[data-picker-kind]').forEach(enhancePathPickerInput);
+
+  const els = pathPickerModalElements();
+  els.selectedPath.addEventListener('input', updatePathPickerChooseButton);
+  document.getElementById('path-picker-close').addEventListener('click', closePathPicker);
+  document.getElementById('path-picker-cancel').addEventListener('click', closePathPicker);
+  els.useCurrent.addEventListener('click', () => {
+    els.selectedPath.value = pathPickerState.currentPath;
+    updatePathPickerChooseButton();
+  });
+  els.up.addEventListener('click', async () => {
+    if (!els.up.dataset.parentPath) {
+      return;
+    }
+    await loadPathPickerDirectory(els.up.dataset.parentPath);
+  });
+  els.choose.addEventListener('click', () => {
+    if (!pathPickerState.input) {
+      return;
+    }
+    pathPickerState.input.value = els.selectedPath.value.trim();
+    closePathPicker();
+  });
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && els.modal.style.display !== 'none') {
+      closePathPicker();
+    }
+  });
+}
+
 function showStatus(message, type) {
   const el = document.getElementById('status-message');
   const text = document.getElementById('status-text');
@@ -381,6 +617,7 @@ function showStatus(message, type) {
 function buildConfigPayload() {
   return {
     media_paths: buildMediaPaths(),
+    artifact_root: document.querySelector('input[name="artifact_root"]').value.trim(),
     balance_manifest_file: document.querySelector('input[name="balance_manifest_file"]').value.trim(),
     balance_job_db: document.querySelector('input[name="balance_job_db"]').value.trim(),
     balance_job_log_dir: document.querySelector('input[name="balance_job_log_dir"]').value.trim(),
@@ -486,4 +723,5 @@ function testPlex() {
 }
 
 document.addEventListener('DOMContentLoaded', initMediaPathControls);
+document.addEventListener('DOMContentLoaded', initPathPickerControls);
 </script>

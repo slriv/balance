@@ -3,6 +3,7 @@ package Balance::JobRunner;
 use v5.42;
 use experimental 'class';
 use source::encoding 'utf8';
+use Balance::Config ();
 use File::Path ();
 use POSIX ();
 
@@ -10,13 +11,30 @@ our $VERSION = '0.01';
 
 class Balance::JobRunner {  ## no critic (Modules::RequireEndWithOne)
 
-    field $log_dir :param = '/artifacts/jobs';
+    field $log_dir :param;
     field $_watchers = {};   # job_id => [ @callbacks ]
     field $_children = {};   # job_id => child pid
+    field $_commands = {};   # job_id => [ @cmd ]
+
+    ADJUST {
+        $log_dir = Balance::Config::default_job_log_dir()
+            unless defined $log_dir && length $log_dir;
+    }
 
     # Return the log file path for a job.
     method log_path($job_id) {
         return "$log_dir/$job_id.log";
+    }
+
+    method job_details($job_id) {
+        my $pid = $_children->{$job_id} or return undef;
+        my $cmd = $_commands->{$job_id} // [];
+
+        return {
+            pid      => $pid,
+            command  => _format_command(@{$cmd}),
+            log_path => $self->log_path($job_id),
+        };
     }
 
     # Start a job: fork+exec @cmd, capture stdout+stderr via a pipe, wrap it
@@ -37,6 +55,7 @@ class Balance::JobRunner {  ## no critic (Modules::RequireEndWithOne)
 
         my $log_path = $self->log_path($job_id);
         open(my $log_fh, '>', $log_path) or die "Cannot open log $log_path: $!\n";
+        $log_fh->autoflush(1);
 
         # Fork and pipe stdout+stderr from child to parent.
         pipe(my $reader, my $writer) or die "Cannot create pipe: $!\n";
@@ -54,6 +73,7 @@ class Balance::JobRunner {  ## no critic (Modules::RequireEndWithOne)
         # Parent: read from the read end of the pipe.
         close $writer;
         $_children->{$job_id} = $pid;
+        $_commands->{$job_id} = [@cmd];
 
         my $stream = Mojo::IOLoop::Stream->new($reader);
         Mojo::IOLoop->singleton->stream($stream);
@@ -78,6 +98,7 @@ class Balance::JobRunner {  ## no critic (Modules::RequireEndWithOne)
             }) if $on_exit;
             delete $_watchers->{$job_id};
             delete $_children->{$job_id};
+            delete $_commands->{$job_id};
         });
 
         $stream->start;
@@ -111,6 +132,18 @@ class Balance::JobRunner {  ## no critic (Modules::RequireEndWithOne)
         }
         return;
     }
+}
+
+sub _format_command(@cmd) {
+    return join ' ', map { _shell_quote($_) } @cmd;
+}
+
+sub _shell_quote($arg) {
+    return q{''} unless defined $arg;
+    return $arg if $arg =~ /\A[\w\-\.\/:=]+\z/;
+
+    $arg =~ s/'/'\\''/g;
+    return qq{'$arg'};
 }
 
 1;

@@ -22,15 +22,15 @@ __END__
 
 =head1 NAME
 
-plex_reconcile - Reconcile Plex library paths after Balance media moves
+balance_plex - Reconcile Plex library paths after Balance media moves
 
 =head1 SYNOPSIS
 
-  plex_reconcile [options]
-  plex_reconcile apply [--report-file=FILE]
-  plex_reconcile dry-run
-  plex_reconcile libraries
-  plex_reconcile scan --library-id=2
+  balance_plex [options]
+  balance_plex apply [--report-file=FILE]
+  balance_plex dry-run
+  balance_plex libraries
+  balance_plex scan --library-id=2
 
 =head1 DESCRIPTION
 

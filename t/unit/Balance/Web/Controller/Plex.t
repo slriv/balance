@@ -24,7 +24,12 @@ sub _test_app {
 
 # Mock JobRunner so we don't actually fork processes.
 my $mock_runner = Test::MockModule->new('Balance::JobRunner');
-$mock_runner->mock('start_job', sub { return });
+my @start_job_calls;
+$mock_runner->mock('start_job', sub {
+  my ($self, @args) = @_;
+  push @start_job_calls, [@args];
+  return;
+});
 
 use Balance::Web::App;
 
@@ -45,12 +50,17 @@ subtest 'GET /plex returns 200 with action buttons' => sub {
 
 subtest 'POST /plex/plan creates a job and redirects' => sub {
     my $t = _test_app();
+    @start_job_calls = ();
     $t->post_ok('/plex/plan')
       ->status_is(302)
       ->header_like(Location => qr{/jobs/plex-plan-});
     my $jobs  = $t->app->job_store->recent_jobs(limit => 5);
     my ($job) = grep { $_->{type} eq 'plex_plan' } @{$jobs};
     ok(defined $job, 'plex_plan job recorded in store');
+    my $call = $start_job_calls[-1];
+    ok($call, 'job runner invoked');
+    is($call->[1], $^X, 'plex plan runs via current perl interpreter');
+    like($call->[2], qr{/script/balance_plex\z}, 'plex plan resolves bundled CLI script path');
 };
 
 # --- POST /plex/dry-run ---

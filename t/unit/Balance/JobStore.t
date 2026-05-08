@@ -1,6 +1,8 @@
 use v5.38;
 use Test::More;
 use Test::Exception;
+use File::Spec;
+use File::Temp qw(tempdir);
 
 use Balance::JobStore;
 
@@ -17,6 +19,22 @@ subtest 'insert_job creates a job' => sub {
     is($job->{id},     'job-001',       'id correct');
     is($job->{type},   'sonarr_apply',  'type correct');
     is($job->{status}, 'queued',        'initial status queued');
+};
+
+subtest 'new creates parent directory for file-backed storage' => sub {
+    my $dir = tempdir(CLEANUP => 1);
+    my $db_dir = File::Spec->catdir($dir, 'nested');
+    my $log_dir = File::Spec->catdir($dir, 'logs');
+    my $db_path = File::Spec->catfile($db_dir, 'jobs.db');
+
+    ok(!-d $db_dir, 'db parent directory absent before construction');
+    ok(!-d $log_dir, 'log directory absent before construction');
+
+    my $file_store = Balance::JobStore->new(db_path => $db_path, log_dir => $log_dir);
+    ok($file_store, 'store constructed');
+    ok(-d $db_dir, 'db parent directory created automatically');
+    ok(!-d $log_dir, 'log directory is not created until a runner needs it');
+    ok(-f $db_path, 'SQLite database file created');
 };
 
 subtest 'get_job returns undef for unknown id' => sub {

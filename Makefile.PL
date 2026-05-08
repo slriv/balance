@@ -13,10 +13,10 @@ WriteMakefile(
     LICENSE          => 'perl',
     MIN_PERL_VERSION => '5.042',
     EXE_FILES        => [qw(
-        bin/balance
-        bin/sonarr_reconcile.pl
-        bin/plex_reconcile.pl
-        bin/balance_web.pl
+        script/balance
+        script/balance_sonarr
+        script/balance_plex
+        script/balance_web
     )],
     PREREQ_PM => {
         'Mojolicious'        => '9.0',

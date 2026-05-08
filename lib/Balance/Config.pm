@@ -5,30 +5,36 @@ use experimental 'class';
 use source::encoding 'utf8';
 use JSON::PP;
 use DBI ();
+use File::Basename qw(dirname);
+use File::Path ();
+use File::Spec ();
 
 our $VERSION = '0.01';
 
 class Balance::Config {  ## no critic (Modules::RequireEndWithOne)
 
-    field $db_path :param = '/artifacts/balance-jobs.db';
+    field $db_path :param;
     field $_dbh;
     field %_cfg;
 
     ADJUST {
+        $db_path = default_job_db() unless defined $db_path && length $db_path;
         die "db_path required\n" unless length($db_path // '');
-        $_dbh = DBI->connect("dbi:SQLite:$db_path", '', '', {
+        ensure_parent_dir($db_path);
+
+        $_dbh = DBI->connect("dbi:SQLite:dbname=$db_path", '', '', {
             RaiseError    => 1,
             AutoCommit    => 1,
             sqlite_unicode => 1,
         }) or die "Cannot open $db_path: $DBI::errstr\n";
 
-        $_dbh->do(<<'SQL');
-CREATE TABLE IF NOT EXISTS config (
-    key        TEXT PRIMARY KEY,
-    value      TEXT,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-)
-SQL
+        $_dbh->do(<<~'SQL');
+            CREATE TABLE IF NOT EXISTS config (
+                key        TEXT PRIMARY KEY,
+                value      TEXT,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        SQL
 
         %_cfg = %{ $self->_read_all };
     }
@@ -136,10 +142,10 @@ SQL
 
     method sonarr_url()               { $self->get('sonarr_url', '') }
     method sonarr_api_key()           { $self->get('sonarr_api_key', '') }
-    method sonarr_report_file()       { my $v = $self->get('sonarr_report_file');       return (defined $v && length $v) ? $v : '/artifacts/sonarr-reconcile-plan.json'; }
-    method sonarr_audit_report_file() { my $v = $self->get('sonarr_audit_report_file'); return (defined $v && length $v) ? $v : '/artifacts/sonarr-audit-report.json'; }
+    method sonarr_report_file()       { my $v = $self->get('sonarr_report_file');       return (defined $v && length $v) ? $v : artifact_path_for_root($self->artifact_root, 'sonarr-reconcile-plan.json'); }
+    method sonarr_audit_report_file() { my $v = $self->get('sonarr_audit_report_file'); return (defined $v && length $v) ? $v : artifact_path_for_root($self->artifact_root, 'sonarr-audit-report.json'); }
     method sonarr_path_map_file()     { my $v = $self->get('sonarr_path_map_file');     return (defined $v && length $v) ? $v : '/config/sonarr-path-map.example'; }
-    method sonarr_retry_queue_file()  { my $v = $self->get('sonarr_retry_queue_file');  return (defined $v && length $v) ? $v : '/artifacts/sonarr-retry-queue.jsonl'; }
+    method sonarr_retry_queue_file()  { my $v = $self->get('sonarr_retry_queue_file');  return (defined $v && length $v) ? $v : artifact_path_for_root($self->artifact_root, 'sonarr-retry-queue.jsonl'); }
 
     method has_sonarr() {
         return length($self->sonarr_url) && length($self->sonarr_api_key);
@@ -149,9 +155,9 @@ SQL
 
     method plex_url()              { $self->get('plex_url', '') }
     method plex_token()            { $self->get('plex_token', '') }
-    method plex_report_file()      { my $v = $self->get('plex_report_file');      return (defined $v && length $v) ? $v : '/artifacts/plex-reconcile-plan.json'; }
+    method plex_report_file()      { my $v = $self->get('plex_report_file');      return (defined $v && length $v) ? $v : artifact_path_for_root($self->artifact_root, 'plex-reconcile-plan.json'); }
     method plex_path_map_file()    { my $v = $self->get('plex_path_map_file');    return (defined $v && length $v) ? $v : '/config/plex-path-map.example'; }
-    method plex_retry_queue_file() { my $v = $self->get('plex_retry_queue_file'); return (defined $v && length $v) ? $v : '/artifacts/plex-retry-queue.jsonl'; }
+    method plex_retry_queue_file() { my $v = $self->get('plex_retry_queue_file'); return (defined $v && length $v) ? $v : artifact_path_for_root($self->artifact_root, 'plex-retry-queue.jsonl'); }
     method plex_library_ids()      { my $v = $self->get('plex_library_ids');      return (defined $v && length $v) ? $v : ''; }
 
     method has_plex() {
@@ -160,9 +166,41 @@ SQL
 
     # --- Runtime convenience ---
 
-    method job_db()        { my $v = $self->get('balance_job_db');        return (defined $v && length $v) ? $v : '/artifacts/balance-jobs.db'; }
-    method job_log_dir()   { my $v = $self->get('balance_job_log_dir');   return (defined $v && length $v) ? $v : '/artifacts/jobs'; }
-    method manifest_file() { my $v = $self->get('balance_manifest_file'); return (defined $v && length $v) ? $v : '/artifacts/balance-apply-manifest.jsonl'; }
+    method artifact_root() {
+        my $v = $self->get('artifact_root');
+        return (defined $v && length $v) ? $v : default_artifact_root();
+    }
+
+    method job_db() {
+        my $v = $self->get('balance_job_db');
+        return (defined $v && length $v) ? $v : default_job_db();
+    }
+
+    method job_log_dir() {
+        my $v = $self->get('balance_job_log_dir');
+        return (defined $v && length $v) ? $v : artifact_dir_for_root($self->artifact_root, 'jobs');
+    }
+
+    method manifest_file() {
+        my $v = $self->get('balance_manifest_file');
+        return (defined $v && length $v) ? $v : artifact_path_for_root($self->artifact_root, 'balance-apply-manifest.jsonl');
+    }
+
+    method balance_plan_file() {
+        return artifact_path_for_root($self->artifact_root, 'balance-plan.sh');
+    }
+
+    method balance_plan_log() {
+        return artifact_path_for_root($self->artifact_root, 'balance-plan.log');
+    }
+
+    method balance_apply_log() {
+        return artifact_path_for_root($self->artifact_root, 'balance-apply.log');
+    }
+
+    method dashboard_volume_cache_file() {
+        return artifact_path_for_root($self->artifact_root, 'dashboard-volume-cache.json');
+    }
 
     method _read_all() {
         my $rows = $_dbh->selectall_arrayref('SELECT key, value FROM config ORDER BY key', { Slice => {} });
@@ -170,11 +208,103 @@ SQL
     }
 }
 
+sub default_artifact_root {
+    return $ENV{BALANCE_ARTIFACT_ROOT}
+        if exists $ENV{BALANCE_ARTIFACT_ROOT} && length $ENV{BALANCE_ARTIFACT_ROOT};
+
+    return '/artifacts' if -d '/artifacts';
+
+    return File::Spec->catdir($ENV{HOME}, 'balance_artifacts')
+        if defined $ENV{HOME} && length $ENV{HOME};
+
+    return File::Spec->catdir('artifacts');
+}
+
+sub artifact_path_for_root {
+    my ($root, @parts) = @_;
+    return File::Spec->catfile($root, @parts);
+}
+
+sub artifact_dir_for_root {
+    my ($root, @parts) = @_;
+    return File::Spec->catdir($root, @parts);
+}
+
+sub default_artifact_path {
+    return artifact_path_for_root(default_artifact_root(), @_);
+}
+
+sub default_job_db {
+    return default_artifact_path('balance-jobs.db');
+}
+
+sub default_job_log_dir {
+    return artifact_dir_for_root(default_artifact_root(), 'jobs');
+}
+
+sub default_manifest_file {
+    return default_artifact_path('balance-apply-manifest.jsonl');
+}
+
+sub default_balance_plan_file {
+    return default_artifact_path('balance-plan.sh');
+}
+
+sub default_balance_plan_log {
+    return default_artifact_path('balance-plan.log');
+}
+
+sub default_balance_apply_log {
+    return default_artifact_path('balance-apply.log');
+}
+
+sub default_sonarr_report_file {
+    return default_artifact_path('sonarr-reconcile-plan.json');
+}
+
+sub default_sonarr_audit_report_file {
+    return default_artifact_path('sonarr-audit-report.json');
+}
+
+sub default_sonarr_retry_queue_file {
+    return default_artifact_path('sonarr-retry-queue.jsonl');
+}
+
+sub default_plex_report_file {
+    return default_artifact_path('plex-reconcile-plan.json');
+}
+
+sub default_plex_retry_queue_file {
+    return default_artifact_path('plex-retry-queue.jsonl');
+}
+
+sub ensure_directory {
+    my ($dir) = @_;
+
+    return unless defined $dir && length $dir;
+    File::Path::make_path($dir) unless -d $dir;
+    return;
+}
+
+sub ensure_parent_dir {
+    my ($path) = @_;
+
+    return unless defined $path && length $path;
+    return if $path eq ':memory:';
+    return if $path =~ /\Afile:.*\bmode=memory\b/i;
+
+    my $dir = dirname($path);
+    return unless defined $dir && length $dir && $dir ne '.';
+
+    ensure_directory($dir);
+    return;
+}
+
 sub service_defaults($service) {
     die "service is required\n" unless defined $service && length $service;
 
     my %common = (
-        manifest_file => '/artifacts/balance-apply-manifest.jsonl',
+        manifest_file => default_manifest_file(),
     );
 
     return {
@@ -182,10 +312,10 @@ sub service_defaults($service) {
         base_url         => '',
         credential_name  => 'SONARR_API_KEY',
         credential_value => '',
-        audit_report_file => '/artifacts/sonarr-audit-report.json',
+        audit_report_file => default_sonarr_audit_report_file(),
         path_map_file    => '/config/sonarr-path-map.example',
-        report_file      => '/artifacts/sonarr-reconcile-plan.json',
-        retry_queue_file => '/artifacts/sonarr-retry-queue.jsonl',
+        report_file      => default_sonarr_report_file(),
+        retry_queue_file => default_sonarr_retry_queue_file(),
     } if $service eq 'sonarr';
 
     return {
@@ -194,8 +324,8 @@ sub service_defaults($service) {
         credential_name  => 'PLEX_TOKEN',
         credential_value => '',
         path_map_file    => '/config/plex-path-map.example',
-        report_file      => '/artifacts/plex-reconcile-plan.json',
-        retry_queue_file => '/artifacts/plex-retry-queue.jsonl',
+        report_file      => default_plex_report_file(),
+        retry_queue_file => default_plex_retry_queue_file(),
         library_ids      => '',
     } if $service eq 'plex';
 

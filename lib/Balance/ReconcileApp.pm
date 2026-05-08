@@ -86,9 +86,13 @@ sub run(%args) {
 }
 
 sub _usage($service_name, $exit_code, $error = undef) {
+    my $command_name = $service_name eq 'sonarr' ? 'balance_sonarr'
+        : $service_name eq 'plex' ? 'balance_plex'
+        : "balance_$service_name";
+
     print STDERR "$error\n\n" if defined $error && length $error;
     print STDERR <<"USAGE";
-Usage: ${service_name}_reconcile.pl [options]
+Usage: $command_name [options]
 
 Build a reconciliation plan for $service_name from the apply manifest.
 
@@ -126,8 +130,8 @@ Balance::ReconcileApp - Shared CLI driver for Sonarr and Plex reconcile tools
 
 =head1 DESCRIPTION
 
-Implements the common command-line workflow used by C<sonarr_reconcile> and
-C<plex_reconcile>: reading the manifest, translating paths via the path map,
+Implements the common command-line workflow used by C<balance_sonarr> and
+C<balance_plex>: reading the manifest, translating paths via the path map,
 building a reconcile plan, and dispatching apply/dry-run/config commands.
 
 =head1 LICENSE

@@ -3,14 +3,15 @@ package Balance::JobStore;
 use v5.42;
 use experimental 'class';
 use source::encoding 'utf8';
+use Balance::Config ();
 
 our $VERSION = '0.01';
 
 class Balance::JobStore {  ## no critic (Modules::RequireEndWithOne)
     use DBI ();
 
-    field $db_path :param = '/artifacts/balance-jobs.db';
-    field $log_dir :param = '/artifacts/jobs';
+    field $db_path :param;
+    field $log_dir :param;
     field $_dbh;
 
     my method _init_db() {
@@ -28,6 +29,13 @@ class Balance::JobStore {  ## no critic (Modules::RequireEndWithOne)
     }
 
     ADJUST {
+        $db_path = Balance::Config::default_job_db()
+            unless defined $db_path && length $db_path;
+        $log_dir = Balance::Config::default_job_log_dir()
+            unless defined $log_dir && length $log_dir;
+
+        Balance::Config::ensure_parent_dir($db_path);
+
         $_dbh = DBI->connect(
             "dbi:SQLite:dbname=$db_path", '', '',
             { RaiseError => 1, AutoCommit => 1, sqlite_unicode => 1 },

@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 use v5.42;
-use lib '/usr/local/lib';
+use FindBin qw($Bin);
+use lib "$Bin/../lib";
 use Balance::Web::App;
 
 Balance::Web::App->new->start;
@@ -9,11 +10,11 @@ __END__
 
 =head1 NAME
 
-balance_web.pl - Balance Mojolicious web UI server
+balance_web - Balance Mojolicious web UI server
 
 =head1 SYNOPSIS
 
-  balance_web.pl daemon -l http://*:8080
+  balance_web daemon -l http://*:8080
 
 =head1 DESCRIPTION
 

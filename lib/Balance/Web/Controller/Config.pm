@@ -4,30 +4,97 @@ use v5.42;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 our $VERSION = '0.01';
+use Cwd qw(abs_path);
 use Balance::Core qw(validate_media_path);
+use File::Basename qw(dirname);
+use File::Spec ();
 
 sub index ($self) {
     my $ac = $self->balance_config;
+    my $artifact_root = $ac->artifact_root;
 
     $self->stash(config => {
         media_paths                => $ac->media_paths,
-        balance_manifest_file      => $ac->manifest_file,
-        balance_job_db             => $ac->job_db,
-        balance_job_log_dir        => $ac->job_log_dir,
+        artifact_root              => $ac->get('artifact_root', ''),
+        artifact_root_default      => $artifact_root,
+        balance_manifest_file      => $ac->get('balance_manifest_file', ''),
+        balance_manifest_file_default => $ac->manifest_file,
+        balance_job_db             => $ac->get('balance_job_db', ''),
+        balance_job_db_default     => $ac->job_db,
+        balance_job_log_dir        => $ac->get('balance_job_log_dir', ''),
+        balance_job_log_dir_default => $ac->job_log_dir,
         sonarr_url                 => $ac->sonarr_url,
         sonarr_api_key             => $ac->sonarr_api_key,
-        sonarr_audit_report_file   => $ac->sonarr_audit_report_file,
+        sonarr_audit_report_file   => $ac->get('sonarr_audit_report_file', ''),
+        sonarr_audit_report_file_default => $ac->sonarr_audit_report_file,
         sonarr_path_map_file       => $ac->sonarr_path_map_file,
-        sonarr_report_file         => $ac->sonarr_report_file,
-        sonarr_retry_queue_file    => $ac->sonarr_retry_queue_file,
+        sonarr_report_file         => $ac->get('sonarr_report_file', ''),
+        sonarr_report_file_default => $ac->sonarr_report_file,
+        sonarr_retry_queue_file    => $ac->get('sonarr_retry_queue_file', ''),
+        sonarr_retry_queue_file_default => $ac->sonarr_retry_queue_file,
         plex_url                   => $ac->plex_url,
         plex_token                 => $ac->plex_token,
         plex_path_map_file         => $ac->plex_path_map_file,
-        plex_report_file           => $ac->plex_report_file,
-        plex_retry_queue_file      => $ac->plex_retry_queue_file,
+        plex_report_file           => $ac->get('plex_report_file', ''),
+        plex_report_file_default   => $ac->plex_report_file,
+        plex_retry_queue_file      => $ac->get('plex_retry_queue_file', ''),
+        plex_retry_queue_file_default => $ac->plex_retry_queue_file,
         plex_library_ids           => $ac->plex_library_ids,
     });
     $self->render(template => 'config/index');
+    return;
+}
+
+sub browse ($self) {
+    my $kind = $self->param('kind') // 'file';
+    unless ($kind eq 'file' || $kind eq 'directory') {
+        return $self->render(
+            json   => { success => \0, error => 'Browse kind must be "file" or "directory"' },
+            status => 400,
+        );
+    }
+
+    my $current_path = _resolve_browse_path($self->param('path'));
+    unless (defined $current_path && -d $current_path) {
+        return $self->render(
+            json   => { success => \0, error => 'Unable to browse the requested path' },
+            status => 400,
+        );
+    }
+
+    opendir my $dh, $current_path or return $self->render(
+        json   => { success => \0, error => "Cannot open $current_path: $!" },
+        status => 500,
+    );
+
+    my @entries;
+    while (my $name = readdir $dh) {
+        next if $name eq '.' || $name eq '..';
+
+        my $entry_path = File::Spec->catfile($current_path, $name);
+        my $is_dir = -d $entry_path;
+        next if $kind eq 'directory' && !$is_dir;
+
+        push @entries, {
+            name => $name,
+            path => $entry_path,
+            type => $is_dir ? 'directory' : 'file',
+        };
+    }
+    closedir $dh;
+
+    @entries = sort {
+        ($a->{type} cmp $b->{type})
+            || (lc($a->{name}) cmp lc($b->{name}))
+            || ($a->{name} cmp $b->{name})
+    } @entries;
+
+    $self->render(json => {
+        success     => \1,
+        current_path => $current_path,
+        parent_path => _parent_browse_path($current_path),
+        entries     => \@entries,
+    });
     return;
 }
 
@@ -35,6 +102,42 @@ sub _validate_url ($url) {
     return 0 unless $url =~ m{^https?://}i;
     return 0 if $url =~ m{//(?:localhost|127\.|10\.|192\.168\.|169\.254\.|::1)}i;
     return 1;
+}
+
+sub _browse_root () {
+    return $ENV{HOME} if defined $ENV{HOME} && length $ENV{HOME} && -d $ENV{HOME};
+    return '/';
+}
+
+sub _resolve_browse_path ($requested) {
+    my $root = _browse_root();
+    return $root unless defined $requested && length $requested && $requested =~ m{^/};
+
+    if (-d $requested) {
+        return abs_path($requested) // $requested;
+    }
+    if (-e $requested) {
+        my $parent = dirname($requested);
+        return abs_path($parent) // $parent if -d $parent;
+    }
+
+    my $candidate = $requested;
+    while (defined $candidate && length $candidate) {
+        $candidate = dirname($candidate);
+        last unless defined $candidate && length $candidate;
+        return abs_path($candidate) // $candidate if -d $candidate;
+        last if $candidate eq '/';
+    }
+
+    return $root;
+}
+
+sub _parent_browse_path ($path) {
+    return undef unless defined $path && length $path && $path ne '/';
+
+    my $parent = dirname($path);
+    return undef unless defined $parent && length $parent && $parent ne $path;
+    return $parent;
 }
 
 sub update ($self) {
@@ -54,6 +157,7 @@ sub update ($self) {
         }
         $p = {
             media_paths                 => [grep { defined $_->{path} && length $_->{path} } @media_paths],
+            artifact_root               => scalar $self->param('artifact_root'),
             balance_manifest_file       => scalar $self->param('balance_manifest_file'),
             balance_job_db              => scalar $self->param('balance_job_db'),
             balance_job_log_dir         => scalar $self->param('balance_job_log_dir'),
@@ -105,6 +209,7 @@ sub update ($self) {
     }
 
     my %update = (
+        artifact_root             => $p->{artifact_root}             // '',
         balance_manifest_file    => $p->{balance_manifest_file}    // '',
         balance_job_db           => $p->{balance_job_db}           // '',
         balance_job_log_dir      => $p->{balance_job_log_dir}      // '',
