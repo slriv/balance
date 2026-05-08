@@ -4,70 +4,192 @@
 
 <section class="mb-8">
   <h2 class="text-lg font-semibold mb-3 text-gray-300">Balance Operations</h2>
-  <div class="flex flex-wrap gap-4">
-    <form method="post" action="/plan" class="bg-gray-800 rounded p-4 w-72">
-      <h3 class="font-semibold mb-2">Plan Moves</h3>
-      <p class="text-xs text-gray-400 mb-3">
-        Generate a move plan and write plan/log artifacts. No files are moved.
-      </p>
-      <label class="text-xs text-gray-400 block mb-1">Threshold (%)</label>
-      <input name="threshold" type="text" value="20"
-             class="w-full bg-gray-700 rounded px-2 py-1 text-sm mb-3">
-      <label class="text-xs text-gray-400 block mb-1">Max moves (optional)</label>
-      <input name="max_moves" type="text" placeholder="e.g. 10"
-             class="w-full bg-gray-700 rounded px-2 py-1 text-sm mb-3">
-      <button class="w-full bg-blue-700 hover:bg-blue-600 rounded px-3 py-2 text-sm font-medium">
-        Run Plan
-      </button>
-    </form>
+  <form id="balance-operations-form" method="post" action="/plan" class="bg-gray-800 rounded-lg border border-gray-700 p-6 space-y-6">
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Threshold (%)</label>
+        <input name="threshold" type="number" value="20" min="0" max="100" step="0.1" inputmode="decimal"
+               class="w-full bg-gray-700 rounded px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Max Size (GB, optional)</label>
+        <input name="max_size" type="number" min="1" step="1" inputmode="numeric" placeholder="e.g. 50"
+               class="w-full bg-gray-700 rounded px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Max Moves (optional)</label>
+        <input name="max_moves" type="number" min="1" step="1" inputmode="numeric" placeholder="e.g. 10"
+               class="w-full bg-gray-700 rounded px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Drain Mount (optional)</label>
+        <select name="empty_mount" class="w-full bg-gray-700 rounded px-3 py-2 text-sm">
+          <option value="">Do not drain a mount</option>
+          % for my $entry (@{ $mount_entries // [] }) {
+          <option value="<%= $entry->{path} %>"><%= $entry->{label} || $entry->{path} %></option>
+          % }
+        </select>
+      </div>
 
-    <form method="post" action="/dry-run" class="bg-gray-800 rounded p-4 w-72">
-      <h3 class="font-semibold mb-2">Dry-Run Apply</h3>
-      <p class="text-xs text-gray-400 mb-3">
-        Execute apply pipeline with rsync preview mode (`-n`) and no data movement.
-      </p>
-      <label class="text-xs text-gray-400 block mb-1">Threshold (%)</label>
-      <input name="threshold" type="text" value="20"
-             class="w-full bg-gray-700 rounded px-2 py-1 text-sm mb-3">
-      <label class="text-xs text-gray-400 block mb-1">Max moves (optional)</label>
-      <input name="max_moves" type="text" placeholder="e.g. 10"
-             class="w-full bg-gray-700 rounded px-2 py-1 text-sm mb-3">
-      <button class="w-full bg-yellow-700 hover:bg-yellow-600 rounded px-3 py-2 text-sm font-medium">
-        Run Dry-Run
-      </button>
-    </form>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Plan Output Base File</label>
+        <input name="plan_output_file" type="text" placeholder="<%= $balance_plan_output_default %>"
+               class="w-full bg-gray-700 rounded px-3 py-2 text-sm font-mono">
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Plan Log Base File</label>
+        <input name="plan_log_file" type="text" placeholder="<%= $balance_plan_log_default %>"
+               class="w-full bg-gray-700 rounded px-3 py-2 text-sm font-mono">
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Apply/Dry-Run Log Base File</label>
+        <input name="apply_log_file" type="text" placeholder="<%= $balance_apply_log_default %>"
+               class="w-full bg-gray-700 rounded px-3 py-2 text-sm font-mono">
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Manifest File</label>
+        <input name="manifest_file" type="text" placeholder="<%= $balance_manifest_default %>"
+               class="w-full bg-gray-700 rounded px-3 py-2 text-sm font-mono">
+      </div>
+    </div>
 
-    <form method="post" action="/apply" class="bg-gray-800 rounded p-4 w-72">
-      <h3 class="font-semibold mb-2">Apply Moves</h3>
-      <p class="text-xs text-gray-400 mb-3">
-        Execute rsync moves and append successful operations to the apply manifest.
-      </p>
-      <label class="text-xs text-gray-400 block mb-1">Threshold (%)</label>
-      <input name="threshold" type="text" value="20"
-             class="w-full bg-gray-700 rounded px-2 py-1 text-sm mb-3">
-      <label class="text-xs text-gray-400 block mb-1">Max moves (optional)</label>
-      <input name="max_moves" type="text" placeholder="e.g. 10"
-             class="w-full bg-gray-700 rounded px-2 py-1 text-sm mb-3">
-      <button class="w-full bg-green-700 hover:bg-green-600 rounded px-3 py-2 text-sm font-medium">
-        Run Apply
+    <div>
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <h3 class="font-semibold text-sm text-gray-200">Included Mounts</h3>
+        <p class="text-xs text-gray-400">Select the mounts the planner is allowed to rebalance. At least two are required.</p>
+      </div>
+      % if (@{ $mount_entries // [] }) {
+      <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        % for my $entry (@{ $mount_entries // [] }) {
+        <label class="flex items-start gap-3 rounded border border-gray-700 bg-gray-900/40 px-3 py-2 text-sm">
+          <input type="checkbox" name="mount[]" value="<%= $entry->{path} %>" checked class="mt-0.5 rounded border-gray-500 bg-gray-800 text-blue-500">
+          <span>
+            <span class="block font-medium text-gray-100"><%= $entry->{label} || $entry->{path} %></span>
+            <span class="block text-xs font-mono text-gray-400 break-all"><%= $entry->{path} %></span>
+          </span>
+        </label>
+        % }
+      </div>
+      % } else {
+      <p class="text-sm text-gray-500">No media mounts are configured yet. Add them on the Config page first.</p>
+      % }
+    </div>
+
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-[2fr,1fr]">
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Saved Plan to Apply</label>
+        <select id="selected-plan-file" name="selected_plan_file" class="w-full bg-gray-700 rounded px-3 py-2 text-sm font-mono">
+          <option value="">Select a saved plan file...</option>
+          % for my $plan (@{ $available_plans // [] }) {
+          <option value="<%= $plan->{path} %>"><%= $plan->{name} %> — <%= $plan->{modified_fmt} %> — <%= $plan->{size_fmt} %></option>
+          % }
+        </select>
+        <p class="mt-2 text-xs text-gray-400">
+          Dry-run and apply execute the selected saved plan file exactly as written. Generate a plan first if you do not have one yet.
+        </p>
+
+        % if (@{ $available_plans // [] }) {
+        <div class="mt-4 overflow-x-auto rounded border border-gray-700">
+          <table class="w-full text-xs border-collapse">
+            <thead>
+              <tr class="text-left text-gray-400 border-b border-gray-700 bg-gray-900/40">
+                <th class="px-3 py-2">Plan</th>
+                <th class="px-3 py-2">Updated</th>
+                <th class="px-3 py-2">Size</th>
+                <th class="px-3 py-2">Path</th>
+              </tr>
+            </thead>
+            <tbody>
+              % for my $plan (@{ $available_plans // [] }) {
+              <tr class="border-b border-gray-800 last:border-b-0">
+                <td class="px-3 py-2 font-medium text-gray-100"><%= $plan->{name} %></td>
+                <td class="px-3 py-2 text-gray-300"><%= $plan->{modified_fmt} %></td>
+                <td class="px-3 py-2 text-gray-300"><%= $plan->{size_fmt} %></td>
+                <td class="px-3 py-2 font-mono text-gray-400 break-all"><%= $plan->{path} %></td>
+              </tr>
+              % }
+            </tbody>
+          </table>
+        </div>
+        % } else {
+        <p class="mt-4 rounded border border-dashed border-gray-700 px-3 py-3 text-sm text-gray-500">
+          No saved plan files are available yet. Generate a plan to enable dry-run and apply.
+        </p>
+        % }
+      </div>
+
+      <div class="space-y-4">
+        <label class="flex items-start gap-3 rounded border border-gray-700 bg-gray-900/40 px-3 py-3 text-sm">
+          <input type="checkbox" name="verbose" value="1" class="mt-0.5 rounded border-gray-500 bg-gray-800 text-blue-500">
+          <span>
+            <span class="block font-medium text-gray-100">Verbose Planning Output</span>
+            <span class="block text-xs text-gray-400">Include every chosen move in the planner output as it is selected.</span>
+          </span>
+        </label>
+
+        <div class="rounded border border-gray-700 bg-gray-900/40 px-3 py-3 text-xs text-gray-400 space-y-2">
+          <h3 class="text-sm font-semibold text-gray-200">Recommended flow</h3>
+          <ol class="list-decimal pl-4 space-y-1">
+            <li>Set your planner options and click <strong>Generate Plan</strong>.</li>
+            <li>Pick the saved plan file you want from the list above.</li>
+            <li>Use <strong>Run Selected Plan (Dry-Run)</strong> or <strong>Run Selected Plan (Apply)</strong>.</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-3 pt-2">
+      <button formaction="/plan" class="bg-blue-700 hover:bg-blue-600 rounded px-4 py-2 text-sm font-medium">
+        Generate Plan
       </button>
-    </form>
-  </div>
+      <button id="run-selected-dry-run" formaction="/dry-run" disabled
+              class="bg-yellow-700 hover:bg-yellow-600 disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed rounded px-4 py-2 text-sm font-medium">
+        Run Selected Plan (Dry-Run)
+      </button>
+      <button id="run-selected-apply" formaction="/apply" disabled
+              class="bg-green-700 hover:bg-green-600 disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed rounded px-4 py-2 text-sm font-medium">
+        Run Selected Plan (Apply)
+      </button>
+    </div>
+  </form>
 </section>
 
 <section class="mb-8">
   <h2 class="text-lg font-semibold mb-3 text-gray-300">Volume State</h2>
+  % if ($volume_refresh_pending) {
+  <p class="mb-3 text-xs text-amber-300">
+    Refreshing volume sizes in the background. Cached values will appear automatically as each mount scan finishes.
+  </p>
+  % }
   % if (@$mounts) {
   <table class="w-full text-sm border-collapse">
     <thead><tr class="text-left text-gray-400 border-b border-gray-700">
       <th class="pb-2 pr-4">Mount</th>
       <th class="pb-2 pr-4">Used</th>
+      <th class="pb-2 pr-4">Last Updated</th>
     </tr></thead>
     <tbody>
     % for my $m (@$mounts) {
       <tr class="border-b border-gray-800">
         <td class="py-1 pr-4 font-mono text-xs"><%= $m %></td>
-        <td class="py-1 pr-4"><%= $vol->{$m}{fmt} %></td>
+        <td class="py-1 pr-4">
+          % if (defined $vol->{$m}{used_kb}) {
+            <%= $vol->{$m}{fmt} %>
+          % } else {
+            <span class="text-gray-400 italic"><%= $vol->{$m}{fmt} %></span>
+          % }
+        </td>
+        <td class="py-1 pr-4 text-xs text-gray-400">
+          <%= $vol->{$m}{updated_fmt} || 'Unknown' %>
+          % if ($vol->{$m}{refreshing}) {
+            <span class="ml-2 inline-block rounded bg-amber-900 px-2 py-0.5 text-[10px] uppercase tracking-wide text-amber-200">refreshing</span>
+          % }
+          % if ($vol->{$m}{stale}) {
+            <span class="ml-2 inline-block rounded bg-yellow-900 px-2 py-0.5 text-[10px] uppercase tracking-wide text-yellow-200">stale</span>
+          % } elsif ($vol->{$m}{cached}) {
+            <span class="ml-2 inline-block rounded bg-blue-900 px-2 py-0.5 text-[10px] uppercase tracking-wide text-blue-200">cached</span>
+          % }
+        </td>
       </tr>
     % }
     </tbody>
@@ -76,6 +198,108 @@
   <p class="text-gray-500 text-sm">No TV mounts detected. Check container volume configuration.</p>
   % }
 </section>
+
+<script>
+  (() => {
+    const storageKey = 'balance-dashboard-form-state';
+    const form = document.getElementById('balance-operations-form');
+    if (!form) {
+      return;
+    }
+
+    const planSelect = document.getElementById('selected-plan-file');
+    const dryRunButton = document.getElementById('run-selected-dry-run');
+    const applyButton = document.getElementById('run-selected-apply');
+    const fields = Array.from(form.querySelectorAll('input[name], select[name]'));
+
+    const fieldKey = (field) => {
+      if (field.type === 'checkbox' || field.type === 'radio') {
+        return `${field.name}:${field.value}`;
+      }
+      return field.name;
+    };
+
+    const updatePlanButtons = () => {
+      const hasPlan = !!(planSelect && planSelect.value);
+      if (dryRunButton) {
+        dryRunButton.disabled = !hasPlan;
+      }
+      if (applyButton) {
+        applyButton.disabled = !hasPlan;
+      }
+    };
+
+    const restoreState = () => {
+      try {
+        const raw = sessionStorage.getItem(storageKey);
+        if (!raw) {
+          return;
+        }
+
+        const saved = JSON.parse(raw);
+        fields.forEach((field) => {
+          const key = fieldKey(field);
+          if (!Object.prototype.hasOwnProperty.call(saved, key)) {
+            return;
+          }
+
+          if (field.type === 'checkbox' || field.type === 'radio') {
+            field.checked = !!saved[key];
+            return;
+          }
+
+          field.value = saved[key];
+        });
+      } catch (_error) {
+        sessionStorage.removeItem(storageKey);
+      }
+    };
+
+    const saveState = () => {
+      const saved = {};
+      fields.forEach((field) => {
+        const key = fieldKey(field);
+        saved[key] = (field.type === 'checkbox' || field.type === 'radio')
+          ? field.checked
+          : field.value;
+      });
+      sessionStorage.setItem(storageKey, JSON.stringify(saved));
+    };
+
+    const clearState = () => sessionStorage.removeItem(storageKey);
+
+    restoreState();
+    updatePlanButtons();
+
+    fields.forEach((field) => {
+      field.addEventListener('input', saveState);
+      field.addEventListener('change', () => {
+        saveState();
+        updatePlanButtons();
+      });
+    });
+
+    form.addEventListener('submit', clearState);
+
+    % if ($volume_refresh_pending) {
+    const scheduleReload = () => {
+      setTimeout(() => {
+        const active = document.activeElement;
+        if (active && fields.includes(active)) {
+          saveState();
+          scheduleReload();
+          return;
+        }
+
+        saveState();
+        window.location.reload();
+      }, 5000);
+    };
+
+    scheduleReload();
+    % }
+  })();
+</script>
 
 <section>
   <h2 class="text-lg font-semibold mb-3 text-gray-300">Recent Jobs</h2>

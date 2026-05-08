@@ -59,6 +59,44 @@ subtest 'watch_job callback receives output' => sub {
     like(join('', @received), qr/watched output/, 'watcher received output');
 };
 
+subtest 'job_details exposes running pid and command' => sub {
+    my $runner = Balance::JobRunner->new(log_dir => $tmp);
+    $runner->start_job('job-details', $^X, '-e', '$|=1; print "hello\\n"; sleep 30;');
+
+    my $details = $runner->job_details('job-details');
+    ok($details, 'job details available while running');
+    ok($details->{pid}, 'pid recorded');
+    like($details->{command}, qr/\Q$^X\E/, 'command includes perl executable');
+    like($details->{command}, qr/sleep 30/, 'command includes script arguments');
+
+    $runner->cancel_job('job-details');
+    Mojo::IOLoop->timer(2 => sub { Mojo::IOLoop->stop });
+    Mojo::IOLoop->start;
+    is($runner->job_details('job-details'), undef, 'job details cleared after exit');
+};
+
+subtest 'start_job flushes running job output to disk before exit' => sub {
+    my $runner = Balance::JobRunner->new(log_dir => $tmp);
+    my $log = "$tmp/job-live-log.log";
+
+    $runner->start_job(
+        'job-live-log',
+        $^X,
+        '-e',
+        '$|=1; print "first line\\n"; sleep 30;',
+    );
+
+    Mojo::IOLoop->timer(1 => sub {
+        open my $fh, '<', $log or die "no live log: $!";
+        my $content = do { local $/; <$fh> };
+        close $fh;
+        like($content, qr/first line/, 'running job output is flushed to the log file');
+        $runner->cancel_job('job-live-log');
+    });
+    Mojo::IOLoop->timer(3 => sub { Mojo::IOLoop->stop });
+    Mojo::IOLoop->start;
+};
+
 # --- watch_job: replays existing log on register ---
 
 subtest 'watch_job replays existing log content' => sub {

@@ -29,6 +29,22 @@
   % }
 </dl>
 
+<section class="mb-6">
+  <h2 class="text-sm font-semibold text-gray-400 mb-2">
+    <%= $runtime ? 'Running Job Details' : 'Log Details' %>
+  </h2>
+  <dl class="grid grid-cols-[auto,1fr] gap-x-4 gap-y-2 text-sm">
+    <dt class="text-gray-400">Log File</dt>
+    <dd class="text-xs font-mono break-all"><%= $log_path %></dd>
+    % if ($runtime) {
+    <dt class="text-gray-400">PID</dt>
+    <dd class="text-xs font-mono"><%= $runtime->{pid} %></dd>
+    <dt class="text-gray-400">Command</dt>
+    <dd class="text-xs font-mono break-all"><%= $runtime->{command} %></dd>
+    % }
+  </dl>
+</section>
+
 <section>
   <h2 class="text-sm font-semibold text-gray-400 mb-2">Output Log</h2>
   <pre id="log"

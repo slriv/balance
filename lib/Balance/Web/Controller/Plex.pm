@@ -35,10 +35,12 @@ sub plan ($c) {
         started_at => strftime('%Y-%m-%dT%H:%M:%SZ', gmtime),
     );
     $c->job_runner->start_job($job_id,
-        'plex_reconcile.pl',
-        '--manifest-file=' . $ac->manifest_file,
-        '--path-map-file=' . $ac->plex_path_map_file,
-        '--report-file='   . $ac->plex_report_file,
+        $c->cli_command(
+            'balance_plex',
+            '--manifest-file=' . $ac->manifest_file,
+            '--path-map-file=' . $ac->plex_path_map_file,
+            '--report-file='   . $ac->plex_report_file,
+        ),
         sub ($result) {
             my $job = $store->get_job($job_id) or return;
             return unless ($job->{status} // '') eq 'running';
@@ -66,10 +68,12 @@ sub dry_run ($c) {
         started_at => strftime('%Y-%m-%dT%H:%M:%SZ', gmtime),
     );
     $c->job_runner->start_job($job_id,
-        'plex_reconcile.pl', 'dry-run',
-        '--base-url=' . $ac->plex_url,
-        '--token='    . $ac->plex_token,
-        '--report-file=' . $ac->plex_report_file,
+        $c->cli_command(
+            'balance_plex', 'dry-run',
+            '--base-url=' . $ac->plex_url,
+            '--token='    . $ac->plex_token,
+            '--report-file=' . $ac->plex_report_file,
+        ),
         sub ($result) {
             my $job = $store->get_job($job_id) or return;
             return unless ($job->{status} // '') eq 'running';
@@ -97,10 +101,12 @@ sub apply ($c) {
         started_at => strftime('%Y-%m-%dT%H:%M:%SZ', gmtime),
     );
     $c->job_runner->start_job($job_id,
-        'plex_reconcile.pl', 'apply',
-        '--base-url=' . $ac->plex_url,
-        '--token='    . $ac->plex_token,
-        '--report-file=' . $ac->plex_report_file,
+        $c->cli_command(
+            'balance_plex', 'apply',
+            '--base-url=' . $ac->plex_url,
+            '--token='    . $ac->plex_token,
+            '--report-file=' . $ac->plex_report_file,
+        ),
         sub ($result) {
             my $job = $store->get_job($job_id) or return;
             return unless ($job->{status} // '') eq 'running';
@@ -129,9 +135,11 @@ sub scan ($c) {
         started_at => strftime('%Y-%m-%dT%H:%M:%SZ', gmtime),
     );
     my @cmd = (
-        'plex_reconcile.pl', 'scan',
-        '--base-url=' . $ac->plex_url,
-        '--token='    . $ac->plex_token,
+        $c->cli_command(
+            'balance_plex', 'scan',
+            '--base-url=' . $ac->plex_url,
+            '--token='    . $ac->plex_token,
+        ),
     );
     push @cmd, "--library-id=$lib_id" if length $lib_id;
     $c->job_runner->start_job($job_id, @cmd,
@@ -163,9 +171,11 @@ sub empty_trash ($c) {
         started_at => strftime('%Y-%m-%dT%H:%M:%SZ', gmtime),
     );
     my @cmd = (
-        'plex_reconcile.pl', 'empty-trash',
-        '--base-url=' . $ac->plex_url,
-        '--token='    . $ac->plex_token,
+        $c->cli_command(
+            'balance_plex', 'empty-trash',
+            '--base-url=' . $ac->plex_url,
+            '--token='    . $ac->plex_token,
+        ),
     );
     push @cmd, "--library-id=$lib_id" if length $lib_id;
     $c->job_runner->start_job($job_id, @cmd,

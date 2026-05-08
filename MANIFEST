@@ -1,7 +1,3 @@
-bin/balance
-bin/balance_web.pl
-bin/plex_reconcile.pl
-bin/sonarr_reconcile.pl
 Changes
 lib/Balance/AuditSonarr.pm
 lib/Balance/Config.pm
@@ -13,9 +9,11 @@ lib/Balance/JobStore.pm
 lib/Balance/Manifest.pm
 lib/Balance/PathMap.pm
 lib/Balance/Plex.pm
+lib/Balance/Planner.pm
 lib/Balance/Reconcile.pm
 lib/Balance/ReconcileApp.pm
 lib/Balance/Sonarr.pm
+lib/Balance/VolumeScanner.pm
 lib/Balance/Web/App.pm
 lib/Balance/Web/Controller/Config.pm
 lib/Balance/Web/Controller/Dashboard.pm
@@ -27,6 +25,10 @@ Makefile.PL
 MANIFEST
 MANIFEST.SKIP
 README.md
+script/balance
+script/balance_plex
+script/balance_sonarr
+script/balance_web
 share/public/htmx.min.js
 share/templates/config/index.html.ep
 share/templates/dashboard/index.html.ep

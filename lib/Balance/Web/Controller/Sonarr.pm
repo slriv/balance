@@ -35,10 +35,12 @@ sub plan ($c) {
         started_at => strftime('%Y-%m-%dT%H:%M:%SZ', gmtime),
     );
     $c->job_runner->start_job($job_id,
-        'sonarr_reconcile.pl',
-        '--manifest-file=' . $ac->manifest_file,
-        '--path-map-file=' . $ac->sonarr_path_map_file,
-        '--report-file='   . $ac->sonarr_report_file,
+        $c->cli_command(
+            'balance_sonarr',
+            '--manifest-file=' . $ac->manifest_file,
+            '--path-map-file=' . $ac->sonarr_path_map_file,
+            '--report-file='   . $ac->sonarr_report_file,
+        ),
         sub ($result) {
             my $job = $store->get_job($job_id) or return;
             return unless ($job->{status} // '') eq 'running';
@@ -66,10 +68,12 @@ sub dry_run ($c) {
         started_at => strftime('%Y-%m-%dT%H:%M:%SZ', gmtime),
     );
     $c->job_runner->start_job($job_id,
-        'sonarr_reconcile.pl', 'dry-run',
-        '--base-url=' . $ac->sonarr_url,
-        '--api-key='  . $ac->sonarr_api_key,
-        '--report-file=' . $ac->sonarr_report_file,
+        $c->cli_command(
+            'balance_sonarr', 'dry-run',
+            '--base-url=' . $ac->sonarr_url,
+            '--api-key='  . $ac->sonarr_api_key,
+            '--report-file=' . $ac->sonarr_report_file,
+        ),
         sub ($result) {
             my $job = $store->get_job($job_id) or return;
             return unless ($job->{status} // '') eq 'running';
@@ -97,10 +101,12 @@ sub apply ($c) {
         started_at => strftime('%Y-%m-%dT%H:%M:%SZ', gmtime),
     );
     $c->job_runner->start_job($job_id,
-        'sonarr_reconcile.pl', 'apply',
-        '--base-url=' . $ac->sonarr_url,
-        '--api-key='  . $ac->sonarr_api_key,
-        '--report-file=' . $ac->sonarr_report_file,
+        $c->cli_command(
+            'balance_sonarr', 'apply',
+            '--base-url=' . $ac->sonarr_url,
+            '--api-key='  . $ac->sonarr_api_key,
+            '--report-file=' . $ac->sonarr_report_file,
+        ),
         sub ($result) {
             my $job = $store->get_job($job_id) or return;
             return unless ($job->{status} // '') eq 'running';
@@ -128,10 +134,12 @@ sub audit ($c) {
         started_at => strftime('%Y-%m-%dT%H:%M:%SZ', gmtime),
     );
     $c->job_runner->start_job($job_id,
-        'sonarr_reconcile.pl', 'audit',
-        '--base-url=' . $ac->sonarr_url,
-        '--api-key='  . $ac->sonarr_api_key,
-        '--report-file=' . $ac->sonarr_audit_report_file,
+        $c->cli_command(
+            'balance_sonarr', 'audit',
+            '--base-url=' . $ac->sonarr_url,
+            '--api-key='  . $ac->sonarr_api_key,
+            '--report-file=' . $ac->sonarr_audit_report_file,
+        ),
         sub ($result) {
             my $job = $store->get_job($job_id) or return;
             return unless ($job->{status} // '') eq 'running';
@@ -159,10 +167,12 @@ sub repair ($c) {
         started_at => strftime('%Y-%m-%dT%H:%M:%SZ', gmtime),
     );
     $c->job_runner->start_job($job_id,
-        'sonarr_reconcile.pl', 'repair',
-        '--base-url=' . $ac->sonarr_url,
-        '--api-key='  . $ac->sonarr_api_key,
-        '--report-file=' . $ac->sonarr_audit_report_file,
+        $c->cli_command(
+            'balance_sonarr', 'repair',
+            '--base-url=' . $ac->sonarr_url,
+            '--api-key='  . $ac->sonarr_api_key,
+            '--report-file=' . $ac->sonarr_audit_report_file,
+        ),
         sub ($result) {
             my $job = $store->get_job($job_id) or return;
             return unless ($job->{status} // '') eq 'running';

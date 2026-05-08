@@ -22,15 +22,15 @@ __END__
 
 =head1 NAME
 
-sonarr_reconcile - Reconcile Sonarr library paths after Balance media moves
+balance_sonarr - Reconcile Sonarr library paths after Balance media moves
 
 =head1 SYNOPSIS
 
-  sonarr_reconcile [options]
-  sonarr_reconcile apply [--report-file=FILE]
-  sonarr_reconcile dry-run
-  sonarr_reconcile series
-  sonarr_reconcile audit
+  balance_sonarr [options]
+  balance_sonarr apply [--report-file=FILE]
+  balance_sonarr dry-run
+  balance_sonarr series
+  balance_sonarr audit
 
 =head1 DESCRIPTION
 

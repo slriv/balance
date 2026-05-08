@@ -7,7 +7,6 @@ App::Balance plans and applies media folder rebalancing across mounts, then reco
 
 ## Synopsis
 
-
 Or build from this repository:
 
 ```bash
@@ -20,10 +19,32 @@ Run the tools after installation:
 
 ```bash
 balance --help
-sonarr_reconcile.pl --help
-plex_reconcile.pl --help
-balance_web.pl --help
+balance_sonarr --help
+balance_plex --help
+balance_web --help
 ```
+
+## Verified doc examples
+
+Runnable versions of the README command examples live in `doc-examples/`:
+
+- `doc-examples/01-cli-help.sh`
+- `doc-examples/02-balance-workflow.sh`
+- `doc-examples/03-reconcile-help.sh`
+- `doc-examples/04-web-ui-help.sh`
+
+From source checkout, run:
+
+```bash
+./doc-examples/01-cli-help.sh
+./doc-examples/02-balance-workflow.sh
+./doc-examples/03-reconcile-help.sh
+./doc-examples/04-web-ui-help.sh
+```
+
+These scripts set `PERL5LIB` for local source execution (so `balance` can load
+`WebService::Arr` from a sibling checkout) and avoid long-running daemon
+execution during verification.
 
 ## Description
 
@@ -31,10 +52,10 @@ App::Balance is a Perl command-line toolset and web dashboard for managing media
 
 The packaged distribution includes:
 
-- `bin/balance` — plan and execute media moves using explicitly configured media paths
-- `bin/sonarr_reconcile.pl` — build and apply Sonarr reconciliation plans
-- `bin/plex_reconcile.pl` — build and apply Plex reconciliation plans
-- `bin/balance_web.pl` — optional web dashboard for plan/dry-run/apply workflows
+- `script/balance` — plan and execute media moves using explicitly configured media paths
+- `script/balance_sonarr` — build and apply Sonarr reconciliation plans
+- `script/balance_plex` — build and apply Plex reconciliation plans
+- `script/balance_web` — optional web dashboard for plan/dry-run/apply workflows
 
 ## Installation
 
@@ -72,13 +93,13 @@ balance --mount=/media --mount=/media2 --dry-run
 balance --mount=/media --mount=/media2 --apply
 ```
 
-Use `sonarr_reconcile.pl` and `plex_reconcile.pl` to generate and apply service reconcile plans:
+Use `balance_sonarr` and `balance_plex` to generate and apply service reconcile plans:
 
 ```bash
-sonarr_reconcile.pl [options]
-sonarr_reconcile.pl apply [--report-file=FILE]
-plex_reconcile.pl [options]
-plex_reconcile.pl apply [--report-file=FILE]
+balance_sonarr [options]
+balance_sonarr apply [--report-file=FILE]
+balance_plex [options]
+balance_plex apply [--report-file=FILE]
 ```
 
 ### Web UI
@@ -86,7 +107,7 @@ plex_reconcile.pl apply [--report-file=FILE]
 The web interface is an optional dashboard for plan/dry-run/apply workflows. It is backed by SQLite and the job runner in the repository.
 
 ```bash
-balance_web.pl daemon
+balance_web daemon
 ```
 
 ## Configuration
@@ -135,12 +156,12 @@ make cpan-test
 The repository is intended to be executed directly rather than via a container runtime.
 
 ```bash
-perl bin/balance_web.pl daemon
+perl script/balance_web daemon
 ```
 
 ## Repository layout
 
-- `bin/` — executable entrypoints
+- `script/` — executable entrypoints
 - `lib/Balance/` — shared module implementation
 - `config/` — path map examples
 - `scripts/` — helper scripts

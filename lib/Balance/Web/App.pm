@@ -5,7 +5,11 @@ use Mojo::Base 'Mojolicious', -signatures;
 use Balance::Config;
 use Balance::JobStore;
 use Balance::JobRunner;
+use Cwd qw(abs_path);
+use File::Basename qw(dirname);
+use FindBin qw($RealBin);
 use File::ShareDir qw(dist_dir);
+use File::Spec;
 
 our $VERSION = '0.01';
 
@@ -18,7 +22,7 @@ sub startup ($self) {
     # TODO: consider invalidating cached helpers after config updates to those keys.
     $self->helper(balance_config => sub ($c) {
         return $c->app->{_balance_config} //= Balance::Config->new(
-            db_path => $c->app->config->{balance_job_db} // '/artifacts/balance-jobs.db',
+            db_path => $c->app->config->{balance_job_db} // Balance::Config::default_job_db(),
         );
     });
 
@@ -41,6 +45,21 @@ sub startup ($self) {
         return sprintf('%s-%d%04d', $prefix, time(), int(rand(9999)));
     });
 
+    $self->helper(cli_command => sub ($c, $script, @args) {
+        my @candidates = (
+            File::Spec->catfile($RealBin, $script),
+            File::Spec->catfile(dirname(__FILE__), '..', '..', '..', 'script', $script),
+        );
+
+        for my $candidate (@candidates) {
+            my $resolved = eval { abs_path($candidate) } // $candidate;
+            next unless defined $resolved && -f $resolved;
+            return ($^X, $resolved, @args);
+        }
+
+        return ($script, @args);
+    });
+
     my $share = -d 'share' ? 'share' : dist_dir('App-Balance');
     $self->renderer->paths(["$share/templates"]);
     $self->static->paths(["$share/public"]);
@@ -51,6 +70,7 @@ sub startup ($self) {
     
     # Config management
     $r->get('/config')->to('config#index');
+    $r->get('/config/browse')->to('config#browse');
     $r->post('/config/update')->to('config#update');
     $r->post('/config/test-sonarr')->to('config#test_sonarr');
     $r->post('/config/test-plex')->to('config#test_plex');
@@ -90,7 +110,7 @@ Balance::Web::App - Mojolicious application for the Balance web UI
 
 =head1 SYNOPSIS
 
-  # bin/balance_web.pl
+    # script/balance_web
   use Mojolicious::Commands;
   Mojolicious::Commands->start_app('Balance::Web::App');
 
