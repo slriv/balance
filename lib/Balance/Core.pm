@@ -4,7 +4,7 @@ use v5.42;
 use source::encoding 'utf8';
 use Exporter 'import';
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 our @EXPORT_OK = qw(
     log_ts dir_size_kb fmt pct_fmt print_state validate_media_path

@@ -8,7 +8,7 @@ use JSON::PP ();
 use POSIX qw(strftime);
 use Balance::DiskProbe ();  # called as Balance::DiskProbe::* so mocks intercept
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 our @EXPORT_OK = qw(audit_series write_audit_report read_audit_report);
 

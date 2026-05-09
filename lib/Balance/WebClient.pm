@@ -3,7 +3,7 @@ use v5.42;
 use experimental 'class';
 use HTTP::Tiny;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 class Balance::WebClient {  ## no critic (Modules::RequireEndWithOne)
 

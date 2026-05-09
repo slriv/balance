@@ -5,7 +5,7 @@ use experimental 'class';
 use source::encoding 'utf8';
 use Balance::Config ();
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 class Balance::JobStore {  ## no critic (Modules::RequireEndWithOne)
     use DBI ();

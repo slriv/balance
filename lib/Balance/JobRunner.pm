@@ -7,7 +7,7 @@ use Balance::Config ();
 use File::Path ();
 use POSIX ();
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 class Balance::JobRunner {  ## no critic (Modules::RequireEndWithOne)
 
