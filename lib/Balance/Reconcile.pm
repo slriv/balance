@@ -7,7 +7,7 @@ use JSON::PP ();
 use POSIX qw(strftime);
 use Balance::PathMap qw(translate_path);
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 our @EXPORT_OK = qw(build_plan write_report);
 

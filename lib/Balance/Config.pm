@@ -9,7 +9,7 @@ use File::Basename qw(dirname);
 use File::Path ();
 use File::Spec ();
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 class Balance::Config {  ## no critic (Modules::RequireEndWithOne)
 

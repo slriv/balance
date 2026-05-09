@@ -3,7 +3,7 @@ package Balance::Web::Controller::Dashboard;
 use v5.42;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 our $VOLUME_CACHE_TTL = $ENV{BALANCE_VOLUME_CACHE_TTL} // 900;
 our %VOLUME_REFRESH_STATE;
 

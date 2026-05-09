@@ -3,7 +3,7 @@ package Balance::Web::Controller::Config;
 use v5.42;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 use Cwd qw(abs_path);
 use Balance::Core qw(validate_media_path);
 use File::Basename qw(dirname);

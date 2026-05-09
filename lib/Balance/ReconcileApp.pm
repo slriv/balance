@@ -9,7 +9,7 @@ use Balance::Config ();
 use Balance::Manifest qw(read_manifest successful_apply_records);
 use Balance::PathMap qw(load_path_map);
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 our @EXPORT_OK = qw(run);
 

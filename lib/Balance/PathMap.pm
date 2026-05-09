@@ -4,7 +4,7 @@ use v5.42;
 use source::encoding 'utf8';
 use Exporter 'import';
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 our @EXPORT_OK = qw(load_path_map translate_path reverse_translate_path nas_roots);
 

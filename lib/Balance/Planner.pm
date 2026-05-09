@@ -4,7 +4,7 @@ use experimental 'class';
 use feature 'signatures';
 use source::encoding 'utf8';
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 class Balance::Planner {  ## no critic (Modules::RequireEndWithOne)
     use Exporter 'import';

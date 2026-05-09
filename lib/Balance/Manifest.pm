@@ -5,7 +5,7 @@ use source::encoding 'utf8';
 use Exporter 'import';
 use JSON::PP ();
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 our @EXPORT_OK = qw(append_manifest_record read_manifest successful_apply_records);
 

@@ -3,7 +3,7 @@ package Balance::Web::Controller::Jobs;
 use v5.42;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 use POSIX qw(strftime);
 
 sub show ($c) {
