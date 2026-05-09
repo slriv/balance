@@ -159,6 +159,46 @@ The repository is intended to be executed directly rather than via a container r
 perl script/balance_web daemon
 ```
 
+## Running with Docker
+
+This repository includes a `Dockerfile` that builds `App::Balance` and also
+installs:
+
+- `WebService::Arr` from `slriv/perl-arrapi`
+- `WebService::Plex` from `slriv/perl-plexapi`
+
+Build the image from this repository root:
+
+```bash
+docker build -t balance-app .
+```
+
+Run the web UI and persist artifacts on the host:
+
+```bash
+docker run --rm \
+  -p 3010:3010 \
+  -v "$PWD/artifacts:/artifacts" \
+  balance-app
+```
+
+The container defaults `BALANCE_ARTIFACT_ROOT=/artifacts` and starts:
+
+```text
+balance_web daemon -l http://0.0.0.0:3010
+```
+
+### Pin dependency branches/tags (optional)
+
+You can pin `arrapi` / `plexapi` refs at build time:
+
+```bash
+docker build \
+  --build-arg ARRAPI_REF=main \
+  --build-arg PLEXAPI_REF=main \
+  -t balance-app .
+```
+
 ## Repository layout
 
 - `script/` — executable entrypoints
@@ -167,13 +207,6 @@ perl script/balance_web daemon
 - `scripts/` — helper scripts
 - `t/` — test suite
 - `share/` — bundled shared data installed via `File::ShareDir`
-
-## Contributing
-
-1. Create a topic branch
-2. Make focused changes
-3. Run `make lint` and `make test`
-4. Open a pull request
 
 ## Support
 
