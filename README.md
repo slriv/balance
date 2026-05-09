@@ -153,7 +153,7 @@ make cpan-test
 
 ## Running locally
 
-The repository is intended to be executed directly rather than via a container runtime.
+The repository can be executed directly.
 
 ```bash
 perl script/balance_web daemon
