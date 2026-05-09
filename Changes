@@ -1,5 +1,10 @@
 # Revision history for App-Balance
 
+0.02    2026-05-09
+        Add Docker support: multi-stage Dockerfile, docker-compose.yml, and
+        docker/entrypoint.sh. Requires rsync in the container for the apply
+        command.
+
 0.01    2026-04-30
         Initial CPAN release.
         Rebalances media folders across multiple storage mounts while

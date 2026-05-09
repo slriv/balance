@@ -36,6 +36,10 @@
 (^|/)\.keep$
 
 # Docker — not part of CPAN dist
+^Dockerfile$
+^docker-compose\.yml$
+^\.dockerignore$
+^docker/
 
 # Deployment scripts — not part of CPAN dist
 ^scripts/

@@ -1,5 +1,30 @@
 #!/usr/bin/env perl
+use v5.42;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
-use Balance::Planner ();
-exit Balance::Planner::cli_main(@ARGV);
+use Balance::Planner qw(cli_main);
+
+exit cli_main(@ARGV);
+
+__END__
+
+=head1 NAME
+
+balance - Plan and apply media rebalancing across storage mounts
+
+=head1 SYNOPSIS
+
+  balance [options] [mounts...]
+  balance --threshold 20 --max-size 500G /mnt/vol1 /mnt/vol2
+
+=head1 DESCRIPTION
+
+Plans and applies media rebalancing across storage mounts to balance disk usage
+and enforce minimum free-space requirements. Uses balance apply manifest for
+subsequent Sonarr and Plex reconciliation. See L<Balance::Planner>.
+
+=head1 LICENSE
+
+Copyright (C) 2026 Sam Robertson. This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
+
+=cut

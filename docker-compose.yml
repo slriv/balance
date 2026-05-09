@@ -1,0 +1,32 @@
+services:
+  balance:
+    build:
+      context: .
+      args:
+        PERL_VERSION: "5.42"
+        ARRAPI_REF: main
+        PLEXAPI_REF: main
+    image: balance-app
+    restart: unless-stopped
+    ports:
+      - "3010:3010"
+    volumes:
+      - artifacts:/artifacts
+      # Mount your media libraries so balance can scan and move files between
+      # them (the apply command uses rsync to physically move content).
+      # The container paths must match what you configure under Settings →
+      # Media Paths (or the media_paths config key).
+      # Add one entry per mount, for example:
+      #- /Volumes/TV:/media/TV
+      #- /Volumes/TV2:/media/TV2
+    environment:
+      BALANCE_ARTIFACT_ROOT: /artifacts
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:3010/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+volumes:
+  artifacts:
