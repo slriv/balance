@@ -1,0 +1,77 @@
+% # HTMX fragment: scan status bar for all mounts
+% my $mounts = stash('mounts') // [];
+
+% my $any_active = grep { ($_->{scan_status} // '') eq 'scanning' } @$mounts;
+
+<div id="scan-status"
+  hx-get="/files/scan/status"
+  hx-trigger="<%= $any_active ? 'every 3s' : 'every 30s' %>"
+  hx-swap="outerHTML"
+  class="mb-4 space-y-1">
+
+% if (!@$mounts) {
+  <div class="text-sm text-gray-500 italic">
+    No mounts configured. Add media paths in
+    <a href="/config" class="text-blue-400 hover:text-blue-300">Config</a>.
+  </div>
+% } else {
+  % for my $m (@$mounts) {
+    % my $status = $m->{scan_status} // 'idle';
+    % my $dot_class =
+    %   $status eq 'scanning'  ? 'bg-yellow-400 animate-pulse' :
+    %   $status eq 'complete'  ? 'bg-green-500'  :
+    %   $status eq 'error'     ? 'bg-red-500'    : 'bg-gray-500';
+
+    <div class="flex items-center gap-3 text-xs text-gray-300 bg-gray-800 rounded px-3 py-2">
+      <span class="inline-block w-2 h-2 rounded-full <%= $dot_class %>"></span>
+      <span class="font-mono text-gray-200"><%= $m->{path} %></span>
+      <span class="text-gray-400"><%= $status %></span>
+
+      % if ($status eq 'scanning') {
+        <span class="text-yellow-300">
+          <%= $m->{files_indexed} // 0 %> files indexed so far…
+        </span>
+      % } elsif ($status eq 'complete' && defined $m->{last_scan_finished_at}) {
+        <span class="text-gray-500">
+          <%= $m->{files_indexed} // 0 %> files ·
+          last scan
+          % my @t = localtime($m->{last_scan_finished_at});
+          <%= sprintf('%04d-%02d-%02d %02d:%02d', $t[5]+1900, $t[4]+1, $t[3], $t[2], $t[1]) %>
+        </span>
+      % } elsif ($status eq 'error' && defined $m->{error_message}) {
+        <span class="text-red-400"><%= $m->{error_message} %></span>
+      % }
+
+      % if ($m->{enabled}) {
+        <button type="button"
+          hx-post="/files/scan/start"
+          hx-vals='{"mount_id": "<%= $m->{id} %>"}'
+          hx-target="#scan-status"
+          hx-swap="outerHTML"
+          title="Trigger rescan"
+          class="ml-auto text-gray-500 hover:text-blue-400">
+          ↺
+        </button>
+        <button type="button"
+          hx-post="/files/mounts/<%= $m->{id} %>/toggle"
+          hx-target="#scan-status"
+          hx-swap="outerHTML"
+          hx-confirm="Disable scanning for <%= $m->{path} %>?"
+          title="Disable this mount"
+          class="text-gray-600 hover:text-red-400 text-xs">
+          ✕
+        </button>
+      % } else {
+        <button type="button"
+          hx-post="/files/mounts/<%= $m->{id} %>/toggle"
+          hx-target="#scan-status"
+          hx-swap="outerHTML"
+          title="Enable this mount"
+          class="ml-auto text-gray-500 hover:text-green-400 text-xs">
+          Enable
+        </button>
+      % }
+    </div>
+  % }
+% }
+</div>

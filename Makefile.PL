@@ -29,11 +29,10 @@ WriteMakefile(
         'JSON::XS'           => '4.0',
         'HTTP::Tiny'         => '0.070',
         'JSON::PP'           => '4.0',
-    },
-    TEST_REQUIRES => {
-        'Test::More'         => '1.302',
-        'Test::Exception'    => '0.43',
-        'Test::MockModule'   => '0.177',
+        # Optional: real-time inotify file watching (falls back to polling)
+        # 'Linux::Inotify2'  => '2.3',
+        # Optional: media metadata extraction from video/audio files
+        # 'Image::ExifTool'  => '12.0',
     },
     META_MERGE => {
         'meta-spec' => { version => 2 },
@@ -51,12 +50,39 @@ WriteMakefile(
 );
 
 package MY;  ## no critic (Modules::ProhibitMultiplePackages)
+
+sub top_targets {
+    my $self = shift;
+    my $text = $self->SUPER::top_targets(@_);
+    my $help = <<'HELP';
+help :
+	@echo "App::Balance -- available make targets"
+	@echo ""
+	@echo "  Build and install:"
+	@echo "    make                   Build (same as make all)"
+	@echo "    make install           Install to site Perl"
+	@echo "    make uninstall         Remove installed files"
+	@echo ""
+	@echo "  Distribution:"
+	@echo "    make cpan-build        Build .tar.gz for CPAN upload"
+	@echo "    make dist              Build .tar.gz distribution"
+	@echo "    make distcheck         Verify MANIFEST matches files on disk"
+	@echo ""
+	@echo "  Development:"
+	@echo "    make lint              Check code style and Perl syntax"
+	@echo ""
+	@echo "  Clean:"
+	@echo "    make clean             Remove build artifacts"
+	@echo "    make realclean         Remove build artifacts and generated Makefile"
+
+HELP
+    $text =~ s/^help\b[^\n]*\n\t[^\n]*\n/$help/m;
+    return $text;
+}
+
 sub postamble {
     my $self = shift;
     my $custom = <<'MAKE';
-# Override TEST_FILES to discover tests recursively under t/.
-# GNU Make ($(shell ...)) is required; this project targets Linux/Docker.
-TEST_FILES = $(shell find t -name '*.t' | sort)
 lint:
 	find lib bin -type f -print0 | xargs -0 perl -Mstrict -Mwarnings -c
 	find lib bin -type f -print0 | xargs -0 perlcritic --severity 4
@@ -64,8 +90,12 @@ lint:
 cpan-build:
 	perl Makefile.PL && perl -MExtUtils::Manifest -e 'ExtUtils::Manifest::mkmanifest()' && perl Makefile.PL && make dist
 
-cpan-test: cpan-build
-	cpanm --test-only App-Balance-*.tar.gz
+# When INSTALL_BASE is used, these variables must be redirected to the
+# install-base paths so `make uninstall` removes the correct packlist.
+UNINSTALL := $(ABSPERLRUN) -MExtUtils::Install -e 'uninstall(shift,1,0);' --
+SITEARCHEXP := $(INSTALLSITEARCH)
+VENDORARCHEXP := $(INSTALLVENDORARCH)
+PERL_ARCHLIB := $(INSTALLPRIVLIB)
 
 MAKE
     return $custom . File::ShareDir::Install::postamble($self);

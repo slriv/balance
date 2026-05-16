@@ -46,7 +46,8 @@ RUN cpanm --notest \
         LWP::UserAgent \
         JSON::XS \
         HTTP::Tiny \
-        JSON::PP
+        JSON::PP \
+        Image::ExifTool
 
 # Copy source and install the app (rebuilds on code changes only)
 COPY . /opt/src/balance
@@ -67,6 +68,7 @@ RUN apt-get update \
         curl \
         rsync \
         ca-certificates \
+        inotify-tools \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy all installed Perl modules from builder

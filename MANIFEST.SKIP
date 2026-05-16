@@ -48,6 +48,9 @@
 ^artifacts/
 ^dist/
 
+# Test directory
+^t/
+
 # Test noise
 \.bak$
 ~$

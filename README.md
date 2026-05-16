@@ -11,7 +11,6 @@ Or build from this repository:
 
 ```bash
 make cpan-build
-make test
 sudo make install
 ```
 
@@ -64,7 +63,6 @@ The packaged distribution includes:
 ```bash
 perl Makefile.PL
 make
-make test
 sudo make install
 ```
 
@@ -124,14 +122,7 @@ For mounts, configure media paths explicitly in the UI or pass `--mount=<path>` 
 
 ## Development
 
-This repository includes helper targets for local development and testing.
-
-Run tests locally:
-
-```bash
-make test
-make test-all
-```
+This repository includes helper targets for local development.
 
 Lint the code with:
 
@@ -143,12 +134,6 @@ Build the distribution tarball:
 
 ```bash
 make cpan-build
-```
-
-Package and verify with:
-
-```bash
-make cpan-test
 ```
 
 ## Running locally
@@ -205,7 +190,6 @@ docker build \
 - `lib/Balance/` — shared module implementation
 - `config/` — path map examples
 - `scripts/` — helper scripts
-- `t/` — test suite
 - `share/` — bundled shared data installed via `File::ShareDir`
 
 ## Support
