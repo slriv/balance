@@ -12,7 +12,7 @@ our $VERSION = '0.01';
 sub index ($c) {
     my $index  = $c->file_index;
     my $mounts = $index->all_mounts();
-    my $selected_mount = $c->param('mount_id') // ($mounts->[0]{id} // '');
+    my $selected_mount = $c->param('mount_id') || (@$mounts ? $mounts->[0]{id} : '');
 
     # Find the mount object to get its path
     my ($mount) = grep { $_->{id} == $selected_mount } @$mounts if $selected_mount;
@@ -190,7 +190,7 @@ sub dir_title ($c) {
 
     my $title = $index->dir_media_title($mount_id, $dir_path);
     if ($title) {
-        $c->render(text => "<span class=\"text-gray-400 text-xs italic\">$title</span>");
+        $c->render(text => '<span class="text-gray-400 text-xs italic">' . xml_escape($title) . '</span>');
     }
     else {
         $c->render(text => '');
@@ -216,7 +216,7 @@ sub toggle_mount ($c) {
 # GET /files/tags   (JSON array of all distinct user-applied tags)
 sub list_tags ($c) {
     my $tags = $c->file_index->distinct_tags();
-    # Plain request → HTML <option> list for <datalist>; JSON accepted → JSON array
+    # Plain request -> HTML <option> list for <datalist>; JSON accepted -> JSON array
     if (($c->req->headers->accept // '') =~ m{application/json}) {
         $c->render(json => $tags);
         return;

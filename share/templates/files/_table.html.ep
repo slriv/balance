@@ -26,6 +26,12 @@
 %   return '' unless $csort eq $col;
 %   return $cdir eq 'asc' ? ' ▲' : ' ▼';
 % }
+% my sub page_url ($p) {
+%   if ($bdir) {
+%     return "/files/browse?mount_id=${mount_id}&dir=" . url_escape($bdir) . "&sort=${csort}&dir_order=${cdir}&per=${per_page}&page=$p";
+%   }
+%   return "/files/data?mount_id=${mount_id}&q=${filter}&ext=${ext_f}&type=${type_f}&per=${per_page}&sort=${csort}&dir=${cdir}&page=$p";
+% }
 % my sub fmt_size ($bytes) {
 %   return '—' unless defined $bytes;
 %   my @units = ('B','KB','MB','GB','TB');
@@ -183,7 +189,7 @@
   <div class="flex gap-1">
     % if ($page > 1) {
       <a class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded cursor-pointer"
-        hx-get="/files/data?mount_id=<%= $mount_id %>&q=<%= $filter %>&ext=<%= $ext_f %>&type=<%= $type_f %>&per=<%= $per_page %>&sort=<%= $csort %>&dir=<%= $cdir %>&page=<%= $page - 1 %>"
+        hx-get="<%= page_url($page - 1) %>"
         hx-target="#files-table-container"
         hx-swap="innerHTML">← Prev</a>
     % }
@@ -192,7 +198,7 @@
     % my $end   = List::Util::min($pages, $page + 2);
     % for my $p ($start .. $end) {
       <a class="px-3 py-1 rounded cursor-pointer <%= $p == $page ? 'bg-blue-700 text-white' : 'bg-gray-700 hover:bg-gray-600' %>"
-        hx-get="/files/data?mount_id=<%= $mount_id %>&q=<%= $filter %>&ext=<%= $ext_f %>&type=<%= $type_f %>&per=<%= $per_page %>&sort=<%= $csort %>&dir=<%= $cdir %>&page=<%= $p %>"
+        hx-get="<%= page_url($p) %>"
         hx-target="#files-table-container"
         hx-swap="innerHTML">
         <%= $p %>
@@ -201,7 +207,7 @@
 
     % if ($page < $pages) {
       <a class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded cursor-pointer"
-        hx-get="/files/data?mount_id=<%= $mount_id %>&q=<%= $filter %>&ext=<%= $ext_f %>&type=<%= $type_f %>&per=<%= $per_page %>&sort=<%= $csort %>&dir=<%= $cdir %>&page=<%= $page + 1 %>"
+        hx-get="<%= page_url($page + 1) %>"
         hx-target="#files-table-container"
         hx-swap="innerHTML">Next →</a>
     % }

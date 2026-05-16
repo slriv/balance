@@ -3,6 +3,8 @@ lib/Balance/AuditSonarr.pm
 lib/Balance/Config.pm
 lib/Balance/Core.pm
 lib/Balance/DiskProbe.pm
+lib/Balance/FileIndex.pm
+lib/Balance/FileIndexer.pm
 lib/Balance/FuzzyName.pm
 lib/Balance/JobRunner.pm
 lib/Balance/JobStore.pm
@@ -17,6 +19,7 @@ lib/Balance/VolumeScanner.pm
 lib/Balance/Web/App.pm
 lib/Balance/Web/Controller/Config.pm
 lib/Balance/Web/Controller/Dashboard.pm
+lib/Balance/Web/Controller/Files.pm
 lib/Balance/Web/Controller/Jobs.pm
 lib/Balance/Web/Controller/Plex.pm
 lib/Balance/Web/Controller/Sonarr.pm
@@ -32,6 +35,13 @@ script/balance_web
 share/public/htmx.min.js
 share/templates/config/index.html.ep
 share/templates/dashboard/index.html.ep
+share/templates/files/_dir_list.html.ep
+share/templates/files/_meta_cell.html.ep
+share/templates/files/_meta_edit.html.ep
+share/templates/files/_scan_status.html.ep
+share/templates/files/_table.html.ep
+share/templates/files/browse.html.ep
+share/templates/files/index.html.ep
 share/templates/jobs/show.html.ep
 share/templates/layouts/main.html.ep
 share/templates/plex/index.html.ep
