@@ -1,0 +1,44 @@
+% layout 'main';
+% my $dir_name  = stash('dir_name') // (split '/', stash('browse_dir') // '')[-1];
+% title "Files — $dir_name";
+% my $browse_dir = stash('browse_dir') // '';
+% my $mount_id   = stash('mount_id') // '';
+
+<div class="max-w-full">
+  <!-- Breadcrumb -->
+  <nav class="text-sm text-gray-400 mb-4 flex items-center gap-1 flex-wrap">
+    <a href="/files?mount_id=<%= $mount_id %>"
+       class="text-blue-400 hover:text-blue-300">Files</a>
+    % my @parts = grep { length } split '/', $browse_dir;
+    % my $accum = '';
+    % for my $i (0 .. $#parts) {
+    %   $accum .= '/' . $parts[$i];
+    %   my $is_last = ($i == $#parts);
+      <span class="text-gray-600">/</span>
+      % if ($is_last) {
+        <span class="text-white font-medium"><%= $parts[$i] %></span>
+      % } else {
+        <a href="/files/browse?mount_id=<%= $mount_id %>&dir=<%= url_escape($accum) %>"
+           class="text-blue-400 hover:text-blue-300"><%= $parts[$i] %></a>
+      % }
+    % }
+  </nav>
+
+  <h1 class="text-xl font-bold text-white mb-4">
+    📁 <%= $dir_name %>
+  </h1>
+
+  <!-- File listing table, reuses same fragment as flat search -->
+  <div id="files-table-container">
+    %= include 'files/_table',
+         result       => stash('result'),
+         mount_id     => $mount_id,
+         current_sort => stash('current_sort') // 'file_type',
+         current_dir  => stash('current_dir')  // 'asc',
+         filter       => '',
+         ext_filter   => '',
+         type_filter  => '',
+         per_page     => stash('per_page') // 200,
+         browse_dir   => $browse_dir
+  </div>
+</div>

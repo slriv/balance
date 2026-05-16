@@ -1,0 +1,107 @@
+% layout 'main';
+% title 'Files';
+
+<div class="max-w-full">
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h1 class="text-2xl font-bold text-white">File Index</h1>
+      <p class="text-sm text-gray-400">
+        <%= $total_files // 0 %> total files indexed across all mounts
+      </p>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="/files/export.csv<%= $selected_mount ? '?mount_id=' . $selected_mount : '' %>"
+        class="bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium px-4 py-2 rounded">
+        ↓ Export CSV
+      </a>
+      <button
+        hx-post="/files/scan/start"
+        hx-target="#scan-status"
+        hx-swap="outerHTML"
+        hx-confirm="Start a full rescan of all enabled mounts?"
+        class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded">
+        ↺ Scan Now
+      </button>
+    </div>
+  </div>
+
+  <!-- Scan status bar -->
+  <div id="scan-status"
+    hx-get="/files/scan/status"
+    hx-trigger="load, every 5s"
+    hx-swap="outerHTML">
+  </div>
+
+  <!-- Mount selector -->
+  <div class="flex items-center gap-3 mt-4 mb-3">
+    <label class="text-xs text-gray-400">Mount</label>
+    <select id="mount-select"
+      class="bg-gray-700 border border-gray-600 text-sm text-gray-100 rounded px-2 py-1"
+      hx-get="/files/dirs"
+      hx-target="#dir-list-container"
+      hx-swap="innerHTML"
+      hx-include="[name='mount_id']"
+      hx-trigger="change">
+      % for my $m (@{ $mounts // [] }) {
+        <option value="<%= $m->{id} %>"
+          <%= (($selected_mount // '') eq ($m->{id} // '')) ? 'selected' : '' %>>
+          <%= $m->{path} %>
+          (<%= $m->{files_indexed} // 0 %> files)
+        </option>
+      % }
+    </select>
+    <!-- Hidden field so hx-include above picks up the value -->
+    <input type="hidden" name="mount_id" id="mount-id-field"
+      value="<%= $selected_mount // '' %>" />
+  </div>
+
+  <!-- Top-level directory listing -->
+  <div id="dir-list-container"
+    hx-get="/files/dirs?mount_id=<%= $selected_mount // '' %>"
+    hx-trigger="load"
+    hx-swap="innerHTML">
+    <div class="text-gray-400 text-sm py-4">Loading directories…</div>
+  </div>
+</div>
+
+<script>
+  // Keep hidden mount_id field in sync with select
+  document.getElementById('mount-select')?.addEventListener('change', function() {
+    document.getElementById('mount-id-field').value = this.value;
+  });
+
+  // SSE: trigger scan-status refresh on key indexer events
+  (function () {
+    const es = new EventSource('/files/scan/events');
+    const RE = /^(scan_start|scan_complete|scan_error|incremental_complete):/;
+    es.onmessage = function (e) {
+      if (RE.test(e.data)) {
+        htmx.ajax('GET', '/files/scan/status', { target: '#scan-status', swap: 'outerHTML' });
+      }
+    };
+    window.addEventListener('beforeunload', () => es.close());
+  })();
+
+  // Bulk-tag helpers (event-delegated so they survive HTMX re-renders)
+  function updateBulkBar() {
+    const checked = document.querySelectorAll('.file-checkbox:checked');
+    const bar     = document.getElementById('bulk-bar');
+    const cnt     = document.getElementById('bulk-selected-count');
+    if (!bar) return;
+    bar.classList.toggle('hidden', checked.length === 0);
+    if (cnt) cnt.textContent = checked.length + ' selected';
+  }
+  function toggleAllCheckboxes(master) {
+    document.querySelectorAll('.file-checkbox').forEach(c => c.checked = master.checked);
+    updateBulkBar();
+  }
+  function clearBulkSelection() {
+    document.querySelectorAll('.file-checkbox, #select-all-cb').forEach(c => c.checked = false);
+    updateBulkBar();
+  }
+  document.addEventListener('change', function (e) {
+    if (e.target.classList.contains('file-checkbox') || e.target.id === 'select-all-cb')
+      updateBulkBar();
+  });
+  document.addEventListener('htmx:afterSwap', updateBulkBar);
+</script>

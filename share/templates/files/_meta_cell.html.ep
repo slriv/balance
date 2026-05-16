@@ -1,0 +1,36 @@
+% # HTMX fragment: inline tags/notes cell for a single file row
+% # Expects stash: file => $row hashref
+% use JSON::PP ();
+% my $file = stash('file') // {};
+% my $id   = $file->{id} // '';
+
+% my @tags;
+% if (defined $file->{tags} && length $file->{tags}) {
+%   eval { @tags = @{ JSON::PP->new->utf8->decode($file->{tags}) } };
+% }
+
+<div id="meta-<%= $id %>-display" class="flex flex-col gap-1">
+  % if (@tags) {
+    <div class="flex flex-wrap gap-1">
+      % for my $tag (@tags) {
+        <span class="bg-indigo-800 text-indigo-200 text-xs px-1.5 py-0.5 rounded">
+          <%= $tag %>
+        </span>
+      % }
+    </div>
+  % }
+
+  % if (defined $file->{notes} && length $file->{notes}) {
+    <p class="text-gray-400 text-xs italic truncate max-w-xs" title="<%= $file->{notes} %>">
+      <%= $file->{notes} %>
+    </p>
+  % }
+
+  <button
+    hx-get="/files/<%= $id %>/meta?_edit=1"
+    hx-target="#meta-<%= $id %>"
+    hx-swap="innerHTML"
+    class="text-xs text-gray-500 hover:text-blue-400 self-start">
+    ✏ edit
+  </button>
+</div>

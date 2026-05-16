@@ -202,6 +202,11 @@ class Balance::Config {  ## no critic (Modules::RequireEndWithOne)
         return artifact_path_for_root($self->artifact_root, 'dashboard-volume-cache.json');
     }
 
+    method file_index_db() {
+        my $v = $self->get('balance_file_index_db');
+        return (defined $v && length $v) ? $v : default_file_index_db();
+    }
+
     method _read_all() {
         my $rows = $_dbh->selectall_arrayref('SELECT key, value FROM config ORDER BY key', { Slice => {} });
         return { map { $_->{key} => $_->{value} } @$rows };
@@ -276,6 +281,10 @@ sub default_plex_report_file {
 
 sub default_plex_retry_queue_file {
     return default_artifact_path('plex-retry-queue.jsonl');
+}
+
+sub default_file_index_db {
+    return default_artifact_path('balance-file-index.db');
 }
 
 sub ensure_directory {

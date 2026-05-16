@@ -1,0 +1,49 @@
+% # HTMX fragment: inline edit form for tags + notes
+% # Expects stash: file => $row hashref
+% use JSON::PP ();
+% my $file = stash('file') // {};
+% my $id   = $file->{id} // '';
+
+% my @tags;
+% if (defined $file->{tags} && length $file->{tags}) {
+%   eval { @tags = @{ JSON::PP->new->utf8->decode($file->{tags}) } };
+% }
+% my $tags_str = join ', ', @tags;
+% my $notes    = $file->{notes} // '';
+
+<form id="meta-<%= $id %>-form" class="flex flex-col gap-2">
+  <div>
+    <label class="block text-xs text-gray-400 mb-0.5">Tags (comma-separated)</label>
+    <input type="text" name="tags" value="<%= $tags_str %>"
+      list="tag-datalist-<%= $id %>"
+      placeholder="anime, hd, favorite"
+      class="w-full bg-gray-700 border border-gray-600 text-xs text-gray-100 rounded px-2 py-1" />
+    <datalist id="tag-datalist-<%= $id %>"
+      hx-get="/files/tags"
+      hx-trigger="load"
+      hx-swap="innerHTML"></datalist>
+  </div>
+  <div>
+    <label class="block text-xs text-gray-400 mb-0.5">Notes</label>
+    <input type="text" name="notes" value="<%= $notes %>"
+      placeholder="free-form note…"
+      class="w-full bg-gray-700 border border-gray-600 text-xs text-gray-100 rounded px-2 py-1" />
+  </div>
+  <div class="flex gap-2">
+    <button type="button"
+      hx-put="/files/<%= $id %>/meta"
+      hx-include="#meta-<%= $id %>-form"
+      hx-target="#meta-<%= $id %>"
+      hx-swap="innerHTML"
+      class="text-xs bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded">
+      Save
+    </button>
+    <button type="button"
+      hx-get="/files/<%= $id %>/meta"
+      hx-target="#meta-<%= $id %>"
+      hx-swap="innerHTML"
+      class="text-xs text-gray-400 hover:text-gray-200">
+      Cancel
+    </button>
+  </div>
+</form>
