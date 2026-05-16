@@ -50,6 +50,13 @@ WriteMakefile(
 );
 
 package MY;  ## no critic (Modules::ProhibitMultiplePackages)
+sub clean {
+    my $self = shift;
+    my $text = $self->SUPER::clean(@_);
+    # Do not rename Makefile to Makefile.old during 'make clean'; that's for 'make realclean'
+    $text =~ s/\t- \$\(MV\) \$\(FIRST_MAKEFILE\) \$\(MAKEFILE_OLD\) \$\(DEV_NULL\)\n//;
+    return $text;
+}
 
 sub top_targets {
     my $self = shift;
