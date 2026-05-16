@@ -8,6 +8,7 @@ use Balance::JobRunner;
 use Balance::FileIndex;
 use Balance::FileIndexer;
 use Mojo::IOLoop ();
+use Mojo::IOLoop::Subprocess ();
 use Cwd qw(abs_path);
 use File::Basename qw(dirname);
 use FindBin qw($RealBin);
@@ -141,11 +142,12 @@ sub _start_indexer ($app) {
     my $index   = $app->file_index;
     my $mounts  = $index->enabled_mounts();
 
-    # Discover any new mounts on Linux and add them (disabled by default)
+    # Discover any new mounts on Linux and add them disabled by default,
+    # so the user must explicitly enable them before scanning begins.
     if (-f '/proc/mounts') {
         my @sys_mounts = Balance::FileIndexer::discover_mounts();
         for my $mp (@sys_mounts) {
-            $index->ensure_mount($mp);
+            $index->ensure_mount($mp, enabled => 0);
         }
     }
 

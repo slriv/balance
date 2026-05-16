@@ -89,8 +89,12 @@ class Balance::FileIndex {  ## no critic (Modules::RequireEndWithOne)
 
     # --- Mount management ---
 
-    method ensure_mount($path) {
-        $_dbh->do('INSERT OR IGNORE INTO mounts (path) VALUES (?)', {}, $path);
+    method ensure_mount($path, %opts) {
+        my $enabled = exists $opts{enabled} ? ($opts{enabled} ? 1 : 0) : 1;
+        $_dbh->do(
+            'INSERT OR IGNORE INTO mounts (path, enabled) VALUES (?, ?)',
+            {}, $path, $enabled,
+        );
         return $_dbh->selectrow_hashref('SELECT * FROM mounts WHERE path = ?', {}, $path);
     }
 
@@ -275,8 +279,7 @@ SQL
             {}, $mount_id, $dir,
         );
         my $rows = $_dbh->selectall_arrayref(
-            "SELECT * FROM files WHERE mount_id = ? AND dir = ?
-             ORDER BY $sort_col $sort_dir LIMIT ? OFFSET ?",
+            "SELECT * FROM files WHERE mount_id = ? AND dir = ?\n             ORDER BY $sort_col $sort_dir LIMIT ? OFFSET ?",
             { Slice => {} }, $mount_id, $dir, $per_page, $offset,
         );
         return {
@@ -414,10 +417,10 @@ sub _ceil_div ($n, $d) {
 }
 
 # Derive a human-readable title from a raw media filename.
-# e.g. "Breaking.Bad.S01E01.720p.BluRay.mkv" → "Breaking Bad"
+# e.g. "Breaking.Bad.S01E01.720p.BluRay.mkv" -> "Breaking Bad"
 sub _clean_media_name ($name) {
     $name =~ s/\.[^.]+\z//;               # strip extension
-    $name =~ s/[._]/ /g;                   # dots/underscores → spaces
+    $name =~ s/[._]/ /g;                   # dots/underscores -> spaces
     # Strip from year, season/episode tag, or quality tag onwards
     $name =~ s/\s*[\(\[]?\b(?:19|20)\d{2}\b.*\z//;
     $name =~ s/\s*\bS\d{2}E\d{2}\b.*\z//i;
