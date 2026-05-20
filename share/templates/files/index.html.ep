@@ -10,7 +10,7 @@
       </p>
     </div>
     <div class="flex items-center gap-2">
-      <a href="/files/export.csv<%= $selected_mount ? '?mount_id=' . $selected_mount : '' %>"
+      <a id="export-link" href="/files/export.csv<%= $selected_mount ? '?mount_id=' . $selected_mount : '' %>"
         class="bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium px-4 py-2 rounded">
         ↓ Export CSV
       </a>
@@ -28,46 +28,67 @@
   <!-- Scan status bar -->
   <div id="scan-status"
     hx-get="/files/scan/status"
-    hx-trigger="load, every 5s"
-    hx-swap="outerHTML">
-  </div>
-
-  <!-- Mount selector -->
-  <div class="flex items-center gap-3 mt-4 mb-3">
-    <label class="text-xs text-gray-400">Mount</label>
-    <select id="mount-select"
-      class="bg-gray-700 border border-gray-600 text-sm text-gray-100 rounded px-2 py-1"
-      hx-get="/files/dirs"
-      hx-target="#dir-list-container"
-      hx-swap="innerHTML"
-      hx-include="[name='mount_id']"
-      hx-trigger="change">
-      % for my $m (@{ $mounts // [] }) {
-        <option value="<%= $m->{id} %>"
-          <%= (($selected_mount // '') eq ($m->{id} // '')) ? 'selected' : '' %>>
-          <%= $m->{path} %>
-          (<%= $m->{files_indexed} // 0 %> files)
-        </option>
-      % }
-    </select>
-    <!-- Hidden field so hx-include above picks up the value -->
-    <input type="hidden" name="mount_id" id="mount-id-field"
-      value="<%= $selected_mount // '' %>" />
-  </div>
-
-  <!-- Top-level directory listing -->
-  <div id="dir-list-container"
-    hx-get="/files/dirs?mount_id=<%= $selected_mount // '' %>"
     hx-trigger="load"
-    hx-swap="innerHTML">
-    <div class="text-gray-400 text-sm py-4">Loading directories…</div>
+    hx-swap="outerHTML settle:0ms">
+  </div>
+
+  <div class="mt-4 grid grid-cols-1 gap-6 xl:grid-cols-[22rem_minmax(0,1fr)] xl:items-start">
+    <section class="space-y-3">
+      <div class="flex items-center gap-3">
+        <label class="text-xs text-gray-400">Mount</label>
+        <select id="mount-select"
+          name="mount_id"
+          class="min-w-0 flex-1 bg-gray-700 border border-gray-600 text-sm text-gray-100 rounded px-2 py-1"
+          hx-get="/files/dirs"
+          hx-target="#dir-list-container"
+          hx-swap="innerHTML"
+          hx-include="[name='mount_id']"
+          hx-trigger="change">
+          % for my $m (@{ $mounts // [] }) {
+            <option value="<%= $m->{id} %>"
+              <%= (($selected_mount // '') eq ($m->{id} // '')) ? 'selected' : '' %>>
+              <%= $m->{path} %>
+              (<%= $m->{files_indexed} // 0 %> files)
+            </option>
+          % }
+        </select>
+      </div>
+
+      <div class="rounded border border-gray-700 bg-gray-900/40 p-3">
+        <h2 class="mb-2 text-sm font-semibold text-gray-200">Directories</h2>
+        <p class="mb-3 text-xs text-gray-500">Pick a top-level folder to browse just that directory, or keep the right pane on all indexed files for the selected mount.</p>
+        <div id="dir-list-container"
+          hx-get="/files/dirs?mount_id=<%= $selected_mount // '' %>"
+          hx-trigger="load"
+          hx-swap="innerHTML">
+          <div class="text-gray-400 text-sm py-4">Loading directories…</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="files-browser-panel"
+      class="min-w-0"
+      hx-get="/files/panel?mount_id=<%= $selected_mount // '' %>"
+      hx-trigger="load"
+      hx-swap="innerHTML">
+      <div class="rounded border border-gray-700 bg-gray-900/40 px-4 py-6 text-sm text-gray-400">Loading indexed files…</div>
+    </section>
   </div>
 </div>
 
 <script>
-  // Keep hidden mount_id field in sync with select
   document.getElementById('mount-select')?.addEventListener('change', function() {
-    document.getElementById('mount-id-field').value = this.value;
+    const mountId = this.value || '';
+    const exportLink = document.getElementById('export-link');
+    if (exportLink) {
+      exportLink.href = '/files/export.csv' + (mountId ? ('?mount_id=' + encodeURIComponent(mountId)) : '');
+    }
+    if (window.htmx) {
+      htmx.ajax('GET', '/files/panel?mount_id=' + encodeURIComponent(mountId), {
+        target: '#files-browser-panel',
+        swap: 'innerHTML'
+      });
+    }
   });
 
   // SSE: trigger scan-status refresh on key indexer events

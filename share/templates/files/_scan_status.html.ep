@@ -5,8 +5,8 @@
 
 <div id="scan-status"
   hx-get="/files/scan/status"
-  hx-trigger="<%= $any_active ? 'every 3s' : 'every 30s' %>"
-  hx-swap="outerHTML"
+  hx-trigger="<%= $any_active ? 'every 3s' : 'every 60s' %>"
+  hx-swap="outerHTML settle:0ms"
   class="mb-4 space-y-1">
 
 % if (!@$mounts) {
