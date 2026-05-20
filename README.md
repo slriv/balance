@@ -173,6 +173,51 @@ The container defaults `BALANCE_ARTIFACT_ROOT=/artifacts` and starts:
 balance_web daemon -l http://0.0.0.0:3010
 ```
 
+### Docker Compose (media mounts)
+
+`docker-compose.yml` defines named volumes that bind host media folders into the
+container at `/media/*`.
+
+By default, the compose file uses these host paths (override any of them via
+environment variables):
+
+- `BALANCE_MUSIC_PATH` (default `/Volumes/music`)
+- `BALANCE_TVSHOWS_PATH` (default `/Volumes/tvshows`)
+- `BALANCE_MOVIES_PATH` (default `/Volumes/movies`)
+- `BALANCE_BOOKS_PATH` (default `/Volumes/books`)
+- `BALANCE_PHOTOS_PATH` (default `/Volumes/photos`)
+- `BALANCE_DVR_PATH` (default `/Volumes/dvr`)
+- `BALANCE_HOMEVIDEO_PATH` (default `/Volumes/homevideo`)
+- `BALANCE_TVSHOWS_UHD_PATH` (default `/Volumes/tvshowsuhd`)
+- `BALANCE_TVSHOWS2_PATH` (default `/Volumes/tvshows2`)
+- `BALANCE_TVSHOWS3_PATH` (default `/Volumes/tvshows3`)
+- `BALANCE_TVSHOWS4_PATH` (default `/Volumes/tvshows4`)
+- `BALANCE_TVNAS2_PATH` (default `/Volumes/tvnas2`)
+- `BALANCE_MOVIES_UHD_PATH` (default `/Volumes/moviesuhd`)
+
+Start with compose:
+
+```bash
+docker compose up -d
+```
+
+If you run Docker on Colima, the Docker daemon is inside a Linux VM, so host
+paths like `/Volumes/*` must be mounted into that VM first:
+
+```bash
+colima stop
+colima start --mount /Volumes:w
+docker compose up -d
+```
+
+If you change bind source paths, recreate volumes so `driver_opts.device`
+changes are applied:
+
+```bash
+docker compose down -v
+docker compose up -d
+```
+
 ### Pin dependency branches/tags (optional)
 
 You can pin `arrapi` / `plexapi` refs at build time:

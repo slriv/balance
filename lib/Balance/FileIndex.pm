@@ -29,7 +29,7 @@ class Balance::FileIndex {  ## no critic (Modules::RequireEndWithOne)
         $self->_init_schema();
     }
 
-    my method _init_schema() {
+    method _init_schema() {
         $_dbh->do(<<~'SQL');
             CREATE TABLE IF NOT EXISTS mounts (
                 id                    INTEGER PRIMARY KEY AUTOINCREMENT,

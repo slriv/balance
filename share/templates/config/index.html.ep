@@ -506,6 +506,29 @@ function renderPathPickerEntries(entries) {
   const els = pathPickerModalElements();
   els.entries.innerHTML = '';
 
+  if (pathPickerState.kind === 'directory') {
+    const currentRow = document.createElement('button');
+    currentRow.type = 'button';
+    currentRow.dataset.path = pathPickerState.currentPath;
+    currentRow.className = 'flex w-full items-center justify-between gap-4 border-b border-gray-700 bg-gray-800/70 px-3 py-2 text-left text-sm hover:bg-gray-700';
+
+    const currentLabel = document.createElement('span');
+    currentLabel.className = 'font-medium text-green-300';
+    currentLabel.textContent = `📂 Current folder: ${pathPickerState.currentPath}`;
+
+    const currentMeta = document.createElement('span');
+    currentMeta.className = 'text-xs uppercase tracking-wide text-gray-500';
+    currentMeta.textContent = 'current';
+
+    currentRow.append(currentLabel, currentMeta);
+    currentRow.addEventListener('click', () => {
+      els.selectedPath.value = pathPickerState.currentPath;
+      updatePathPickerChooseButton();
+      updatePathPickerSelectionState();
+    });
+    els.entries.appendChild(currentRow);
+  }
+
   if (!entries.length) {
     const empty = document.createElement('div');
     empty.className = 'px-3 py-4 text-sm text-gray-500';
@@ -517,6 +540,7 @@ function renderPathPickerEntries(entries) {
   entries.forEach((entry) => {
     const row = document.createElement('button');
     row.type = 'button';
+    row.dataset.path = entry.path;
     row.className = 'flex w-full items-center justify-between gap-4 border-b border-gray-800 px-3 py-2 text-left text-sm hover:bg-gray-800 last:border-b-0';
 
     const label = document.createElement('span');
@@ -541,8 +565,22 @@ function renderPathPickerEntries(entries) {
 
       els.selectedPath.value = entry.path;
       updatePathPickerChooseButton();
+      updatePathPickerSelectionState();
     });
     els.entries.appendChild(row);
+  });
+
+  updatePathPickerSelectionState();
+}
+
+function updatePathPickerSelectionState() {
+  const els = pathPickerModalElements();
+  const selectedPath = els.selectedPath.value.trim();
+  els.entries.querySelectorAll('[data-path]').forEach((row) => {
+    const active = selectedPath.length > 0 && row.dataset.path === selectedPath;
+    row.classList.toggle('ring-1', active);
+    row.classList.toggle('ring-blue-500', active);
+    row.classList.toggle('bg-blue-900/30', active);
   });
 }
 
@@ -568,6 +606,7 @@ async function loadPathPickerDirectory(path) {
       els.selectedPath.value = result.current_path;
     }
     renderPathPickerEntries(result.entries || []);
+    updatePathPickerSelectionState();
   } catch (error) {
     showStatus(`✗ ${error.message}`, 'error');
   }
@@ -577,7 +616,10 @@ function initPathPickerControls() {
   document.querySelectorAll('input[data-picker-kind]').forEach(enhancePathPickerInput);
 
   const els = pathPickerModalElements();
-  els.selectedPath.addEventListener('input', updatePathPickerChooseButton);
+  els.selectedPath.addEventListener('input', () => {
+    updatePathPickerChooseButton();
+    updatePathPickerSelectionState();
+  });
   document.getElementById('path-picker-close').addEventListener('click', closePathPicker);
   document.getElementById('path-picker-cancel').addEventListener('click', closePathPicker);
   els.useCurrent.addEventListener('click', () => {
