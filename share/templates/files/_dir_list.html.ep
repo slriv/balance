@@ -3,13 +3,14 @@
 % my $mount    = stash('mount');
 % my $mount_id = stash('mount_id') // '';
 
-% my sub fmt_size ($bytes) {
+% my $fmt_size = sub {
+%   my ($bytes) = @_;
 %   return '—' unless defined $bytes;
 %   my @u = ('B','KB','MB','GB','TB');
 %   my $i = 0;
 %   while ($bytes >= 1024 && $i < $#u) { $bytes /= 1024; $i++ }
 %   return sprintf('%.1f %s', $bytes, $u[$i]);
-% }
+% };
 
 % if (!$mount) {
   <p class="text-gray-500 text-sm italic mt-2">Select a mount to browse its directories.</p>
@@ -28,6 +29,16 @@
     % }
   </div>
 % } else {
+  <div class="mb-3 flex items-center justify-between gap-3 rounded bg-gray-800/80 px-3 py-2 text-xs text-gray-400">
+    <span>Showing top-level directories under <span class="font-mono text-gray-300"><%= $mount->{path} %></span></span>
+    <button type="button"
+      hx-get="/files/panel?mount_id=<%= $mount_id %>"
+      hx-target="#files-browser-panel"
+      hx-swap="innerHTML"
+      class="rounded bg-gray-700 px-2 py-1 text-xs text-gray-200 hover:bg-gray-600">
+      Show all indexed files
+    </button>
+  </div>
   <div class="overflow-x-auto rounded border border-gray-700 mt-1">
     <table class="w-full text-sm text-gray-200 border-collapse">
       <thead class="bg-gray-800">
@@ -42,8 +53,9 @@
       <tbody>
         % for my $d (@$dirs) {
           <tr class="border-t border-gray-700 hover:bg-gray-800/50 cursor-pointer"
-            hx-get="/files/browse?mount_id=<%= $mount_id %>&dir=<%= url_escape($d->{path}) %>"
-            hx-target="body"
+            hx-get="/files/panel?mount_id=<%= $mount_id %>&dir=<%= url_escape($d->{path}) %>"
+            hx-target="#files-browser-panel"
+            hx-swap="innerHTML"
             hx-push-url="true">
             <td class="px-4 py-2 font-mono text-sm text-blue-300 hover:text-blue-200">
               📁 <%= $d->{name} %>
@@ -59,7 +71,7 @@
               <%= $d->{file_count} // 0 %>
             </td>
             <td class="px-4 py-2 text-right text-xs text-gray-300 whitespace-nowrap">
-              <%= fmt_size($d->{total_bytes}) %>
+              <%= $fmt_size->($d->{total_bytes}) %>
             </td>
             <td class="px-4 py-2 text-right text-xs text-gray-400">
               <%= $d->{dir_count} // 0 %>

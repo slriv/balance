@@ -12,13 +12,19 @@ services:
       - "3010:3010"
     volumes:
       - artifacts:/artifacts
-      # Mount your media libraries so balance can scan and move files between
-      # them (the apply command uses rsync to physically move content).
-      # The container paths must match what you configure under Settings →
-      # Media Paths (or the media_paths config key).
-      # Add one entry per mount, for example:
-      #- /Volumes/TV:/media/TV
-      #- /Volumes/TV2:/media/TV2
+      - music:/media/music
+      - tvshows:/media/tvshows
+      - movies:/media/movies
+      - books:/media/books
+      - photos:/media/photos
+      - dvr:/media/dvr
+      - homevideo:/media/homevideo
+      - tvshowsUHD:/media/tvshowsUHD
+      - tvshows2:/media/tvshows2
+      - tvshows3:/media/tvshows3
+      - tvshows4:/media/tvshows4
+      - tvnas2:/media/tvnas2
+      - moviesUHD:/media/moviesUHD
     environment:
       BALANCE_ARTIFACT_ROOT: /artifacts
     healthcheck:
@@ -29,4 +35,82 @@ services:
       retries: 3
 
 volumes:
-  artifacts:
+  artifacts: {}
+  music:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BALANCE_MUSIC_PATH:-/Volumes/music}
+  tvshows:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BALANCE_TVSHOWS_PATH:-/Volumes/tvshows}
+  movies:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BALANCE_MOVIES_PATH:-/Volumes/movies}
+  books:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BALANCE_BOOKS_PATH:-/Volumes/books}
+  photos:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BALANCE_PHOTOS_PATH:-/Volumes/photos}
+  dvr:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BALANCE_DVR_PATH:-/Volumes/dvr}
+  homevideo:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BALANCE_HOMEVIDEO_PATH:-/Volumes/homevideo}
+  tvshowsUHD:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BALANCE_TVSHOWS_UHD_PATH:-/Volumes/tvshowsuhd}
+  tvshows2:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BALANCE_TVSHOWS2_PATH:-/Volumes/tvshows2}
+  tvshows3:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BALANCE_TVSHOWS3_PATH:-/Volumes/tvshows3}
+  tvshows4:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BALANCE_TVSHOWS4_PATH:-/Volumes/tvshows4}
+  tvnas2:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BALANCE_TVNAS2_PATH:-/Volumes/tvnas2}
+  moviesUHD:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BALANCE_MOVIES_UHD_PATH:-/Volumes/moviesuhd}
