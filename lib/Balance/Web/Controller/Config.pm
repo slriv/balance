@@ -233,6 +233,9 @@ sub update ($self) {
             [ map { { path => $_->{path}, label => $_->{label}, source => $_->{source} } } @normalized_paths ]
         );
         $config->set_bulk(\%update);
+
+        my $file_index = $self->file_index;
+        $file_index->ensure_mount($_->{path}, enabled => 1) for @normalized_paths;
     }
     catch ($e) {
         return $self->render(json => { success => \0, error => "Failed to save configuration: $e" });

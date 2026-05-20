@@ -1,0 +1,81 @@
+% my $mount      = stash('mount');
+% my $mount_id   = stash('mount_id') // '';
+% my $browse_dir = stash('browse_dir') // '';
+% my $dir_name   = stash('dir_name') // (length $browse_dir ? (split '/', $browse_dir)[-1] : 'All indexed files');
+% my $indexed_total = stash('indexed_total') // 0;
+% my $live_fs_fallback = stash('live_fs_fallback') // 0;
+% my $live_fs_root = stash('live_fs_root') // '';
+% use Mojo::Util qw(url_escape);
+
+<div class="min-w-0 rounded border border-gray-700 bg-gray-900/40 p-4">
+  % if ($mount) {
+    <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+      <div class="min-w-0">
+        % if (length $browse_dir) {
+          <nav class="mb-2 flex flex-wrap items-center gap-1 text-sm text-gray-400">
+            <button type="button"
+              hx-get="/files/panel?mount_id=<%= $mount_id %>"
+              hx-target="#files-browser-panel"
+              hx-swap="innerHTML"
+              class="text-blue-400 hover:text-blue-300">
+              <%= $mount->{path} %>
+            </button>
+            % my @parts = grep { length } split '/', $browse_dir;
+            % my $accum = '';
+            % for my $i (0 .. $#parts) {
+            %   $accum .= '/' . $parts[$i];
+            %   my $is_last = ($i == $#parts);
+              <span class="text-gray-600">/</span>
+              % if ($is_last) {
+                <span class="truncate text-white font-medium"><%= $parts[$i] %></span>
+              % } else {
+                <button type="button"
+                  hx-get="/files/panel?mount_id=<%= $mount_id %>&dir=<%= url_escape($accum) %>"
+                  hx-target="#files-browser-panel"
+                  hx-swap="innerHTML"
+                  class="text-blue-400 hover:text-blue-300">
+                  <%= $parts[$i] %>
+                </button>
+              % }
+            % }
+          </nav>
+          <h2 class="text-lg font-semibold text-white">Directory: <span class="font-mono text-blue-300"><%= $dir_name %></span></h2>
+          <p class="mt-1 text-xs text-gray-500">Showing direct children indexed under <span class="font-mono text-gray-300"><%= $browse_dir %></span>.</p>
+        % } else {
+          <h2 class="text-lg font-semibold text-white">All indexed files</h2>
+          <p class="mt-1 text-xs text-gray-500">Showing indexed rows for <span class="font-mono text-gray-300"><%= $mount->{path} %></span>.</p>
+        % }
+      </div>
+      % if (length $browse_dir) {
+        <a href="/files/browse?mount_id=<%= $mount_id %>&dir=<%= url_escape($browse_dir) %>"
+          class="rounded bg-gray-700 px-3 py-2 text-xs text-gray-200 hover:bg-gray-600">
+          Open dedicated page
+        </a>
+      % }
+    </div>
+  % } else {
+    <div class="rounded bg-gray-800 px-4 py-6 text-sm text-gray-500">
+      Select a mount to browse indexed files.
+    </div>
+  % }
+
+  % if ($mount) {
+    % if ($live_fs_fallback) {
+      <div class="mb-4 rounded border border-yellow-800/60 bg-yellow-950/30 px-3 py-2 text-xs text-yellow-200">
+        No indexed rows yet for this mount. You can still browse the live filesystem below while the index is empty.
+      </div>
+      <div id="live-fs-tree"
+        hx-get="/files/fs-tree?mount_id=<%= $mount_id %>&dir=<%= url_escape($live_fs_root) %>"
+        hx-trigger="load"
+        hx-swap="innerHTML"
+        class="mb-4">
+        <div class="rounded border border-gray-700 bg-gray-900/50 px-3 py-4 text-sm text-gray-400">Loading live directory listing…</div>
+      </div>
+    % }
+
+    <div id="files-table-container">
+      % my $table_html = include 'files/_table', result => stash('result'), mount_id => $mount_id, current_sort => stash('current_sort'), current_dir => stash('current_dir'), filter => stash('filter'), ext_filter => stash('ext_filter'), type_filter => stash('type_filter'), per_page => stash('per_page'), browse_dir => $browse_dir;
+      <%= $table_html %>
+    </div>
+  % }
+</div>

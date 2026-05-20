@@ -44,9 +44,20 @@ sub startup ($self) {
     });
 
     $self->helper(file_index => sub ($c) {
-        return $c->app->{_file_index} //= Balance::FileIndex->new(
-            db_path => $c->balance_config->file_index_db,
-        );
+        return $c->app->{_file_index} //= do {
+            my $index = Balance::FileIndex->new(
+                db_path => $c->balance_config->file_index_db,
+            );
+
+            for my $entry (@{ $c->balance_config->media_paths // [] }) {
+                next unless ref $entry eq 'HASH';
+                my $path = $entry->{path} // '';
+                next unless length $path;
+                $index->ensure_mount($path, enabled => 1);
+            }
+
+            $index;
+        };
     });
 
     # Generate a simple unique job ID from time + random digits
@@ -110,6 +121,8 @@ sub startup ($self) {
     # File index browser
     $r->get('/files')->to('files#index');
     $r->get('/files/dirs')->to('files#dirs');
+    $r->get('/files/panel')->to('files#panel');
+    $r->get('/files/fs-tree')->to('files#fs_tree');
     $r->get('/files/data')->to('files#data');
     $r->get('/files/browse')->to('files#browse');
     $r->get('/files/dir-title')->to('files#dir_title');
@@ -140,6 +153,14 @@ sub startup ($self) {
 
 sub _start_indexer ($app) {
     my $index   = $app->file_index;
+
+    for my $entry (@{ $app->balance_config->media_paths // [] }) {
+        next unless ref $entry eq 'HASH';
+        my $path = $entry->{path} // '';
+        next unless length $path;
+        $index->ensure_mount($path, enabled => 1);
+    }
+
     my $mounts  = $index->enabled_mounts();
 
     # Discover any new mounts on Linux and add them disabled by default,

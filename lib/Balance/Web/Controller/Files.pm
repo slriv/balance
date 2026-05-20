@@ -5,6 +5,7 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 use source::encoding 'utf8';
 use JSON::PP ();
 use Mojo::Util qw(xml_escape);
+use Cwd qw(abs_path);
 
 our $VERSION = '0.01';
 
@@ -43,6 +44,146 @@ sub dirs ($c) {
         mount_id   => $mount_id,
     );
     $c->render(template => 'files/_dir_list');
+}
+
+# GET /files/panel   (HTMX files browser panel: mount-wide or one directory)
+sub panel ($c) {
+    my $index    = $c->file_index;
+    my $mount_id = $c->param('mount_id') // '';
+    my $dir_path = $c->param('dir') // '';
+    my $mounts   = $index->all_mounts();
+    my ($mount)  = grep { $_->{id} == $mount_id } @$mounts if length $mount_id;
+
+    my (%stash, $result);
+    my $indexed_total = ($mount && length $mount_id) ? ($index->count_files($mount_id) // 0) : 0;
+
+    if ($mount && length $dir_path) {
+        $result = $index->list_dir(
+            $mount_id, $dir_path,
+            sort_col => $c->param('sort'),
+            sort_dir => $c->param('dir_order'),
+            page     => $c->param('page'),
+            per_page => $c->param('per'),
+        );
+
+        %stash = (
+            browse_dir   => $dir_path,
+            dir_name     => (split '/', $dir_path)[-1],
+            current_sort => $c->param('sort') // 'file_type',
+            current_dir  => $c->param('dir_order') // 'asc',
+            per_page     => $c->param('per') // 200,
+            filter       => '',
+            ext_filter   => '',
+            type_filter  => '',
+        );
+    }
+    else {
+        $result = $index->list_files(
+            mount_id  => $mount_id,
+            filter    => $c->param('q'),
+            extension => $c->param('ext'),
+            file_type => $c->param('type'),
+            sort_col  => $c->param('sort'),
+            sort_dir  => $c->param('dir'),
+            page      => $c->param('page'),
+            per_page  => $c->param('per'),
+        );
+
+        %stash = (
+            browse_dir   => '',
+            current_sort => $c->param('sort') // 'name',
+            current_dir  => $c->param('dir')  // 'asc',
+            per_page     => $c->param('per')  // 100,
+            filter       => $c->param('q')    // '',
+            ext_filter   => $c->param('ext')  // '',
+            type_filter  => $c->param('type') // '',
+        );
+    }
+
+    $c->stash(
+        mount    => $mount,
+        mount_id => $mount_id,
+        result   => $result,
+        indexed_total => $indexed_total,
+        live_fs_fallback => ($mount && !$dir_path && $indexed_total == 0) ? 1 : 0,
+        live_fs_root => $mount ? $mount->{path} : undef,
+        %stash,
+    );
+    $c->render(template => 'files/_browser_panel');
+}
+
+# GET /files/fs-tree  (live filesystem fallback browser for unindexed mounts)
+sub fs_tree ($c) {
+    my $index    = $c->file_index;
+    my $mount_id = $c->param('mount_id') // '';
+    my $dir      = $c->param('dir') // '';
+
+    my $mount = length $mount_id ? $index->get_mount($mount_id) : undef;
+    unless ($mount) {
+        $c->render(text => 'Mount not found', status => 404);
+        return;
+    }
+
+    my $root = $mount->{path};
+    my $resolved_root = abs_path($root);
+    unless (defined $resolved_root && -d $resolved_root) {
+        $c->render(text => 'Mount path is not accessible', status => 422);
+        return;
+    }
+
+    my $requested = length($dir) ? $dir : $resolved_root;
+    my $resolved  = abs_path($requested);
+    unless (defined $resolved && -d $resolved) {
+        $c->render(text => 'Directory not found', status => 404);
+        return;
+    }
+
+    unless (_is_within_root($resolved, $resolved_root)) {
+        $c->render(text => 'Requested path is outside mount root', status => 400);
+        return;
+    }
+
+    opendir my $dh, $resolved or do {
+        $c->render(text => "Cannot open $resolved: $!", status => 500);
+        return;
+    };
+
+    my @entries;
+    while (my $name = readdir $dh) {
+        next if $name eq '.' || $name eq '..';
+        my $path = "$resolved/$name";
+        my $is_dir = -d $path;
+        my @st = stat($path);
+        push @entries, {
+            name       => $name,
+            path       => $path,
+            type       => $is_dir ? 'directory' : 'file',
+            size_bytes => @st ? $st[7] : undef,
+            mtime      => @st ? $st[9] : undef,
+        };
+    }
+    closedir $dh;
+
+    @entries = sort {
+        ($a->{type} cmp $b->{type})
+            || (lc($a->{name}) cmp lc($b->{name}))
+            || ($a->{name} cmp $b->{name})
+    } @entries;
+
+    my $parent;
+    if ($resolved ne $resolved_root) {
+        ($parent = $resolved) =~ s{/[^/]+\z}{};
+        $parent = $resolved_root if !defined($parent) || !length($parent);
+    }
+
+    $c->stash(
+        mount_id      => $mount_id,
+        current_dir   => $resolved,
+        root_dir      => $resolved_root,
+        parent_dir    => $parent,
+        entries       => \@entries,
+    );
+    $c->render(template => 'files/_fs_tree');
 }
 
 # GET /files/data   (HTMX table fragment)
@@ -329,7 +470,6 @@ sub scan_events ($c) {
 
     my $ring   = $c->app->_indexer_event_ring;
     my $last   = $c->param('last_id') // 0;
-    my $stream = $c->res->content->new_chunk_stream;
 
     # Send backlog of events since client's last-seen id
     my @pending = grep { $_->{id} > $last } @$ring;
@@ -345,6 +485,11 @@ sub scan_events ($c) {
     });
 
     $c->render_later;
+}
+
+sub _is_within_root ($path, $root) {
+    return 1 if $path eq $root;
+    return CORE::index($path, $root . '/') == 0;
 }
 
 1;
