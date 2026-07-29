@@ -23,28 +23,6 @@ balance_plex --help
 balance_web --help
 ```
 
-## Verified doc examples
-
-Runnable versions of the README command examples live in `doc-examples/`:
-
-- `doc-examples/01-cli-help.sh`
-- `doc-examples/02-balance-workflow.sh`
-- `doc-examples/03-reconcile-help.sh`
-- `doc-examples/04-web-ui-help.sh`
-
-From source checkout, run:
-
-```bash
-./doc-examples/01-cli-help.sh
-./doc-examples/02-balance-workflow.sh
-./doc-examples/03-reconcile-help.sh
-./doc-examples/04-web-ui-help.sh
-```
-
-These scripts set `PERL5LIB` for local source execution (so `balance` can load
-`WebService::Arr` from a sibling checkout) and avoid long-running daemon
-execution during verification.
-
 ## Description
 
 App::Balance is a Perl command-line toolset and web dashboard for managing media across multiple filesystem mounts. It generates move plans, applies file migrations safely, and produces Sonarr/Plex reconciliation plans so media services continue to reference valid library paths.
@@ -74,11 +52,15 @@ The distribution requires Perl 5.042 or later and declares these prerequisites:
 - `DBI`
 - `DBD::SQLite`
 - `File::ShareDir`
+- `WebService::Arr`
 - `WebService::Plex`
 - `LWP::UserAgent`
 - `JSON::XS`
 - `HTTP::Tiny`
 - `JSON::PP`
+
+Applying move plans also requires the system `rsync` command. The Docker image
+includes it; install it separately when running from a local Perl installation.
 
 ## Usage
 
@@ -135,6 +117,15 @@ Build the distribution tarball:
 ```bash
 make cpan-build
 ```
+
+## Release metadata
+
+The current distribution is `App-Balance` version `0.02`. Release history is
+recorded in [`Changes`](Changes). Release archives are named
+`App-Balance-<version>.tar.gz` and unpack into a versioned top-level directory.
+
+The distribution metadata declares its Git repository and issue tracker. Report
+defects at <https://github.com/slriv/balance/issues>.
 
 ## Running locally
 
@@ -245,4 +236,6 @@ Report issues and feature requests on GitHub:
 
 ## License
 
-This distribution is released under the Perl license (Artistic License 2.0 or GNU General Public License v1.0+).
+This distribution is released under the same terms as Perl 5 itself: the
+Artistic License 1.0 or the GNU General Public License v1.0 or later. See
+[`LICENSE`](LICENSE).

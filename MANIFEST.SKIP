@@ -1,4 +1,5 @@
 # Standard exclusions
+^\.DS_Store$
 \bRCS\b
 \bCVS\b
 ,v$
@@ -9,9 +10,11 @@
 ^\.githooks/
 ^\.github/
 \.gitmodules
+\.code-workspace$
 
 # Build artifacts
 ^Makefile$
+^App-Balance-.*\.tar$
 ^blib/
 ^pm_to_blib
 ^MYMETA\.
@@ -37,7 +40,7 @@
 
 # Docker — not part of CPAN dist
 ^Dockerfile$
-^docker-compose\.yml$
+^docker-compose(?:\.orig)?\.yml$
 ^\.dockerignore$
 ^docker/
 

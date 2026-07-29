@@ -56,7 +56,7 @@
             hx-get="/files/panel?mount_id=<%= $mount_id %>&dir=<%= url_escape($d->{path}) %>"
             hx-target="#files-browser-panel"
             hx-swap="innerHTML"
-            hx-push-url="true">
+            hx-push-url="/files/browse?mount_id=<%= $mount_id %>&dir=<%= url_escape($d->{path}) %>">
             <td class="px-4 py-2 font-mono text-sm text-blue-300 hover:text-blue-200">
               📁 <%= $d->{name} %>
             </td>

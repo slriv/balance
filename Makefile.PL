@@ -12,12 +12,19 @@ WriteMakefile(
     AUTHOR           => 'Sam Robertson <samr@slriv.com>',
     LICENSE          => 'perl',
     MIN_PERL_VERSION => '5.042',
+    dist             => {
+        COMPRESS => 'gzip --best --force',
+        DIST_CP  => 'cp',
+    },
     EXE_FILES        => [qw(
         script/balance
         script/balance_sonarr
         script/balance_plex
         script/balance_web
     )],
+    CONFIGURE_REQUIRES => {
+        'File::ShareDir::Install' => '0.13',
+    },
     PREREQ_PM => {
         'Mojolicious'        => '9.0',
         'DBI'                => '1.643',
@@ -91,11 +98,11 @@ sub postamble {
     my $self = shift;
     my $custom = <<'MAKE';
 lint:
-	find lib bin -type f -print0 | xargs -0 perl -Mstrict -Mwarnings -c
-	find lib bin -type f -print0 | xargs -0 perlcritic --severity 4
+	find lib script -type f -print0 | xargs -0 perl -Mstrict -Mwarnings -c
+	find lib script -type f -print0 | xargs -0 perlcritic --severity 4
 
 cpan-build:
-	perl Makefile.PL && perl -MExtUtils::Manifest -e 'ExtUtils::Manifest::mkmanifest()' && perl Makefile.PL && make dist
+	perl Makefile.PL && make manifest && make dist
 
 # When INSTALL_BASE is used, these variables must be redirected to the
 # install-base paths so `make uninstall` removes the correct packlist.
