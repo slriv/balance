@@ -97,8 +97,12 @@ App::Balance stores its runtime integration configuration in the app's persisten
 Key configuration entrypoints:
 
 - the web UI config page — persisted service integration and runtime settings
-- `config/sonarr-path-map` — Sonarr path translation map
-- `config/plex-path-map` — Plex path translation map
+- Sonarr and Plex path-map files — provide these files yourself, then set their
+  paths on the web UI config page or pass `--path-map-file=/path/to/file` to the
+  corresponding CLI tool. Each non-comment line maps an absolute NAS path to an
+  absolute service path using `NAS_PATH = SERVICE_PATH`; the repository does not
+  include path-map examples. The default paths (`/config/sonarr-path-map.example`
+  and `/config/plex-path-map.example`) must therefore be created or overridden.
 
 For mounts, configure media paths explicitly in the UI or pass `--mount=<path>` to `balance` rather than relying on deprecated `MEDIA_PATH_*` discovery.
 
@@ -224,9 +228,8 @@ docker build \
 
 - `script/` — executable entrypoints
 - `lib/Balance/` — shared module implementation
-- `config/` — path map examples
-- `scripts/` — helper scripts
-- `share/` — bundled shared data installed via `File::ShareDir`
+- `share/` — web templates and static assets installed via `File::ShareDir`
+- `docker/` — container entrypoint; `Dockerfile` and Compose configuration are at the repository root
 
 ## Support
 
